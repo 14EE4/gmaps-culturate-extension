@@ -1,0 +1,97 @@
+{
+  "0x80c2c7e5bd221ad7:0x6975adb8d798ea0b": {
+    "gmap_id": "0x80c2c7e5bd221ad7:0x6975adb8d798ea0b",
+    "place_name": "CAVA (USC Village)",
+    "local_rating": 4.4,
+    "korean_rating": 3.8,
+    "culture_summary": "지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.",
+    "metrics": {
+      "taste": { "local": 4.5, "kr": 3.8 },
+      "service": { "local": 4.2, "kr": 3.9 },
+      "value": { "local": 4.1, "kr": 3.5 },
+      "atmosphere": { "local": 4.4, "kr": 4.2 }
+    },
+    "nuance_tags": [
+      {
+        "literal": "\"Fully customizable fresh Mediterranean bowl\"",
+        "meaning": "서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음."
+      },
+      {
+        "literal": "\"Pita chips and Crazy Feta are top tier\"",
+        "meaning": "드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천."
+      },
+      {
+        "literal": "\"Super fast line even when crowded\"",
+        "meaning": "USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름."
+      }
+    ]
+  },
+
+  "0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3": {
+    "gmap_id": "0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3",
+    "place_name": "Sun Nong Dan (선농단 LA)",
+    "local_rating": 4.6,
+    "korean_rating": 4.4,
+    "culture_summary": "갈비찜과 치즈 사리의 높은 완성도. 현지인과 한국인 모두 최상위 평가이나 극심한 대기 시간과 주차 난이도에 엄격함.",
+    "metrics": {
+      "taste": { "local": 4.8, "kr": 4.7 },
+      "service": { "local": 4.3, "kr": 3.8 },
+      "value": { "local": 4.2, "kr": 3.9 },
+      "atmosphere": { "local": 4.1, "kr": 3.6 }
+    },
+    "nuance_tags": [
+      {
+        "literal": "\"Portions are huge, order for groups\"",
+        "meaning": "치즈 갈비찜 소자도 2-3인용. 양이 매우 많아 가성비 양호함."
+      },
+      {
+        "literal": "\"Waited 45 mins, staff is super rushed\"",
+        "meaning": "회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함."
+      }
+    ]
+  },
+
+  "0x80c2c7c594236e71:0x5e2b036577317ba9": {
+    "gmap_id": "0x80c2c7c594236e71:0x5e2b036577317ba9",
+    "place_name": "BCD Tofu House (북창동순두부)",
+    "local_rating": 4.5,
+    "korean_rating": 3.9,
+    "culture_summary": "외국인에게는 표준 K-Food 기준점이나, 한국인 기준으로는 본국 순두부 전문점 대비 깊은 국물 맛이 다소 아쉽고 과도한 팁이 부담됨.",
+    "metrics": {
+      "taste": { "local": 4.6, "kr": 3.9 },
+      "service": { "local": 4.4, "kr": 3.8 },
+      "value": { "local": 4.2, "kr": 3.4 },
+      "atmosphere": { "local": 4.3, "kr": 4.0 }
+    },
+    "nuance_tags": [
+      {
+        "literal": "\"Authentic Korean comfort food\"",
+        "meaning": "외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함."
+      }
+    ]
+  },
+
+  "0x89c259837920ab4d:0xcf20c1507df05e54": {
+    "gmap_id": "0x89c259837920ab4d:0xcf20c1507df05e54",
+    "place_name": "Peter Luger Steak House",
+    "local_rating": 4.4,
+    "korean_rating": 3.7,
+    "culture_summary": "역사적인 드라이에이징 스테이크 전문점. 구글 평점은 높으나 Cash Only(현금 결제 전용) 및 고압적인 서비스로 한국인 가성비 평가 하락.",
+    "metrics": {
+      "taste": { "local": 4.7, "kr": 4.2 },
+      "service": { "local": 4.1, "kr": 2.9 },
+      "value": { "local": 3.9, "kr": 3.1 },
+      "atmosphere": { "local": 4.5, "kr": 4.1 }
+    },
+    "nuance_tags": [
+      {
+        "literal": "\"Classic waiter service with Brooklyn attitude\"",
+        "meaning": "친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음."
+      },
+      {
+        "literal": "\"Cash or debit only!\"",
+        "meaning": "신용카드 불가로 현금 미소지 시 큰 불편 유발."
+      }
+    ]
+  }
+}
