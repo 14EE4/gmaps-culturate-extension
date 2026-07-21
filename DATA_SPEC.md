@@ -119,16 +119,18 @@
 
 ## 💡 5. 코드 및 단일 JSON 데이터셋 반영 위치 안내
 
-프로젝트 전체에서 데이터 중복을 방지하기 위해 **단 하나의 JSON 파일(`extension/data/sample_places.json`)**로 원본 데이터셋을 통합 관리합니다.
+프로젝트 최상위 루트의 **`data/sample_places.json`** 파일에서 데이터셋을 통합 관리합니다.
 
-### 📌 단일 데이터셋 원본 파일
-- 📄 **[extension/data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/data/sample_places.json)**
+### 📌 최상위 원본 데이터 파일
+- 📄 **[data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/data/sample_places.json)**
 
-### 🔄 각 모듈별 참조 방식
-1. **크롬 확장프로그램 ([extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js))**:
-   - `chrome.runtime.getURL('data/sample_places.json')`을 통해 동적으로 읽어오므로 백엔드가 없을 때도 이 단일 파일 데이터를 참조합니다.
-2. **FastAPI 백엔드 ([backend/database.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/database.py))**:
-   - `extension/data/sample_places.json` 경로를 동적으로 `json.load()`하여 읽어오므로, **JSON 파일 하나만 수정하면 프론트엔드와 백엔드가 동시에 갱신**됩니다.
+### 🔄 모듈별 참조 방식
+1. **FastAPI 백엔드 ([backend/database.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/database.py))**:
+   - 최상위 루트의 `data/sample_places.json` 경로를 동적 `json.load()`하여 읽어옵니다.
+   - 새로운 식당이나 LLM 분석 데이터를 `data/sample_places.json`에 추가하면 백엔드 API가 실시간 반영합니다.
+2. **크롬 확장프로그램 ([extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js))**:
+   - 백엔드 API(`http://localhost:8000/api/analyze`) 수신을 통해 최상위 `data/sample_places.json` 데이터를 렌더링하며, 오프라인 시 동적 렌더링엔진으로 작동합니다.
+
 
 
 

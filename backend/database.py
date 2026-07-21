@@ -1,20 +1,20 @@
 """
 GMap Review Decoder - Database & Data Manager
-Reads place review analysis dataset from single source JSON file (extension/data/sample_places.json)
+Reads place review analysis dataset from root data/sample_places.json
 """
 
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Path to single source JSON file (extension/data/sample_places.json)
+# Path to root dataset file (data/sample_places.json)
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_FILE = BASE_DIR / "extension" / "data" / "sample_places.json"
+DATA_FILE = BASE_DIR / "data" / "sample_places.json"
 
 
 def load_places_database() -> Dict[str, Any]:
     """
-    단일 JSON 데이터 파일(extension/data/sample_places.json) 동적 로드
+    루트 JSON 데이터 파일(data/sample_places.json) 동적 로드
     """
     if DATA_FILE.exists():
         try:
