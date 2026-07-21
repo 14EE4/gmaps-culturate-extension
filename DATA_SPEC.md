@@ -117,19 +117,20 @@
 
 ---
 
-## 💡 5. 코드 및 단일 JSON 데이터셋 반영 위치 안내
+## 💡 5. 동적 다중 JSON 로더 & Git 이그노어 설정
 
-프로젝트 최상위 루트의 **`data/sample_places.json`** 파일에서 데이터셋을 통합 관리합니다.
+### 🔄 동적 다중 JSON 스캐너 (`backend/database.py`)
+- [backend/database.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/database.py)는 `data/` 디렉토리 내부의 **모든 `*.json` 파일을 자동 스캔하여 하나로 병합**합니다.
+- 용량이 큰 새로운 JSON 파일(예: `data/la_restaurants.json`, `data/ucsd_full.json` 등)을 `data/` 폴더에 자유롭게 추가하더라도 **파이썬 코드를 전혀 수정하지 않고 즉시 자동 로드**됩니다.
 
-### 📌 최상위 원본 데이터 파일
-- 📄 **[data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/data/sample_places.json)**
+### 🛡️ `.gitignore` 용량 방지 설정
+- Git 저장소 용량이 무거워지는 것을 방지하기 위해 기본샘플([data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/data/sample_places.json))을 제외한 **추가 데이터 파일(`data/*.json`)은 Git 추적에서 자동 제외**됩니다:
+  ```gitignore
+  # Big Data JSON files in data/ directory
+  data/*.json
+  !data/sample_places.json
+  ```
 
-### 🔄 모듈별 참조 방식
-1. **FastAPI 백엔드 ([backend/database.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/database.py))**:
-   - 최상위 루트의 `data/sample_places.json` 경로를 동적 `json.load()`하여 읽어옵니다.
-   - 새로운 식당이나 LLM 분석 데이터를 `data/sample_places.json`에 추가하면 백엔드 API가 실시간 반영합니다.
-2. **크롬 확장프로그램 ([extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js))**:
-   - 백엔드 API(`http://localhost:8000/api/analyze`) 수신을 통해 최상위 `data/sample_places.json` 데이터를 렌더링하며, 오프라인 시 동적 렌더링엔진으로 작동합니다.
 
 
 

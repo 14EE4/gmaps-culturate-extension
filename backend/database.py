@@ -1,30 +1,38 @@
 """
-GMap Review Decoder - Database & Data Manager
-Reads place review analysis dataset from root data/sample_places.json
+GMap Review Decoder - Dynamic Multi-JSON Database & Data Manager
+Scans and merges ALL *.json files inside the root data/ directory.
 """
 
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# Path to root dataset file (data/sample_places.json)
+# Path to root data directory
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_FILE = BASE_DIR / "data" / "sample_places.json"
+DATA_DIR = BASE_DIR / "data"
 
 
 def load_places_database() -> Dict[str, Any]:
     """
-    루트 JSON 데이터 파일(data/sample_places.json) 동적 로드
+    data/ 디렉토리 내부의 모든 *.json 파일을 동적 스캔하여 병합 로드
+    (새로운 JSON 파일이 추가되어도 코드 수정 없이 자동 반영됨)
     """
-    if DATA_FILE.exists():
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[Database Error] {DATA_FILE} 로드 실패: {e}")
+    places_db = {}
+
+    if DATA_DIR.exists():
+        json_files = list(DATA_DIR.glob("*.json"))
+        for json_file in json_files:
+            try:
+                with open(json_file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        places_db.update(data)
+            except Exception as e:
+                print(f"[Database Error] {json_file.name} 로드 실패: {e}")
     else:
-        print(f"[Database Warning] {DATA_FILE} 경로에 데이터 파일이 존재하지 않습니다.")
-    return {}
+        print(f"[Database Warning] {DATA_DIR} 디렉토리가 존재하지 않습니다.")
+
+    return places_db
 
 
 def get_place_analysis(gmap_id: Optional[str], place_name: Optional[str], target_culture: str = "Korean") -> Dict[str, Any]:
