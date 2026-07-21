@@ -10,6 +10,7 @@
 3. [이슈 #3: 단순 지도 이동/확대/축소 시 사이드바 패널 예외 처리](#이슈-3-단순-지도-이동확대축소-시-사이드바-패널-예외-처리)
 4. [이슈 #4: 구글 맵스 SPA(Single Page App) URL 변경 실시간 탐지 미작동](#이슈-4-구글-맵스-spasingle-page-app-url-변경-실시간-탐지-미작동)
 5. [이슈 #5: 구글 맵스 기존 CSS와 익스텐션 UI 스타일 충돌 가능성](#이슈-5-구글-맵스-기존-css와-익스텐션-ui-스타일-충돌-가능성)
+6. [이슈 #6: Windows PowerShell 가상환경 실행 권한 오류 (`UnauthorizedAccess`)](#이슈-6-windows-powershell-가상환경-실행-권한-오류-unauthorizedaccess)
 
 ---
 
@@ -118,3 +119,26 @@
 - **해결 조치**:
   - Web Components 표준인 **Shadow DOM** (`shadowHost.attachShadow({ mode: 'open' })`) 기술을 채택하여 사이드바 UI 전체를 격리 렌더링.
   - `styles.css`를 Shadow Root 내부로 전용 로드하여 100% 독립적인 다크 글래스모피즘 UI 보장.
+
+---
+
+### 이슈 #6: Windows PowerShell 가상환경 실행 권한 오류 (`UnauthorizedAccess`)
+
+- **증상 (Error Log)**:
+  ```text
+  .\Activate.ps1 : 이 시스템에서 스크립트를 실행할 수 없으므로 E:\workspace\...\Activate.ps1 파일을 로드할 수 없습니다.
+  + CategoryInfo          : 보안 오류: (:) [], PSSecurityException
+  + FullyQualifiedErrorId : UnauthorizedAccess
+  ```
+- **원인 분석**:
+  - Windows PowerShell의 기본 실행 정책(`ExecutionPolicy`)이 `Restricted`로 설정되어 있어 미서명 `.ps1` 스크립트 실행이 보안 차단됨.
+- **해결 조치**:
+  - **방법 A (추천)**: 스크립트 활성화 과정 없이 파이썬 실행 파일을 직접 지정하여 실행:
+    ```powershell
+    .\.venv\Scripts\python.exe backend/main.py
+    ```
+  - **방법 B**: PowerShell에서 현재 사용자 범위 스크립트 실행 권한 부여:
+    ```powershell
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+    ```
+

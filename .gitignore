@@ -37,3 +37,8 @@ desktop.ini
 .vscode/
 *.swp
 *.swo
+
+# Big Data JSON files in data/ directory (exclude except sample_places.json)
+data/*.json
+!data/sample_places.json
+

@@ -17,8 +17,37 @@
   let shadowRoot = null;
   let lastProcessedKey = null;
 
-  // Pre-populated UCSD Dataset Key Mapped Mock Database
+  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
+    // CAVA (USC Village LA) - Main Test Sample
+    '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
+      gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
+      place_name: 'CAVA (USC Village)',
+      local_rating: 4.4,
+      korean_rating: 3.8,
+      culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
+      metrics: {
+        taste: { local: 4.5, kr: 3.8 },
+        service: { local: 4.2, kr: 3.9 },
+        value: { local: 4.1, kr: 3.5 },
+        atmosphere: { local: 4.4, kr: 4.2 }
+      },
+      nuance_tags: [
+        {
+          literal: '"Fully customizable fresh Mediterranean bowl"',
+          meaning: '서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
+        },
+        {
+          literal: '"Pita chips and Crazy Feta are top tier"',
+          meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
+        },
+        {
+          literal: '"Super fast line even when crowded"',
+          meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
+        }
+      ]
+    },
+
     // LA Sun Nong Dan (선농단 K-Town)
     '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3': {
       gmap_id: '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3',
@@ -40,10 +69,6 @@
         {
           literal: '"Waited 45 mins, staff is super rushed"',
           meaning: '회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함.'
-        },
-        {
-          literal: '"Very rich and savory broth"',
-          meaning: '한국인 입맛에도 간이 다소 셀 수 있으나 매콤달콤한 정석 맛.'
         }
       ]
     },
@@ -65,10 +90,6 @@
         {
           literal: '"Authentic Korean comfort food"',
           meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
-        },
-        {
-          literal: '"Galbi combo is nicely sweet"',
-          meaning: '갈비 양념이 미국 특유의 단맛이 강함 (단짠이 강함).'
         }
       ]
     },
@@ -88,41 +109,12 @@
       },
       nuance_tags: [
         {
-          literal: '"Old school classic Brooklyn service"',
+          literal: '"Classic waiter service with Brooklyn attitude"',
           meaning: '친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음.'
         },
         {
           literal: '"Cash or debit only, be prepared!"',
           meaning: '신용카드 불가로 현금 미소지 시 큰 불편 유발.'
-        }
-      ]
-    },
-
-    // CAVA (USC Village LA) - User Provided URL Key
-    '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
-      gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
-      place_name: 'CAVA (USC Village)',
-      local_rating: 4.4,
-      korean_rating: 3.8,
-      culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
-      metrics: {
-        taste: { local: 4.5, kr: 3.8 },
-        service: { local: 4.2, kr: 3.9 },
-        value: { local: 4.1, kr: 3.5 },
-        atmosphere: { local: 4.4, kr: 4.2 }
-      },
-      nuance_tags: [
-        {
-          literal: '"Fully customizable fresh Mediterranean bowl"',
-          meaning: '서브웨이처럼 베이스, 다입(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
-        },
-        {
-          literal: '"Pita chips and Crazy Feta are top tier"',
-          meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
-        },
-        {
-          literal: '"Super fast line even when crowded"',
-          meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
         }
       ]
     }
