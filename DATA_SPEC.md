@@ -117,14 +117,18 @@
 
 ---
 
-## 💡 5. 코드 반영 위치 안내
+## 💡 5. 코드 및 단일 JSON 데이터셋 반영 위치 안내
 
-### 위치 A: 샘플 데이터 마크다운/JSON (data/)
-- [data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/data/sample_places.json) 파일에 새로운 장소 JSON을 추가하여 중앙 관리합니다.
+프로젝트 전체에서 데이터 중복을 방지하기 위해 **단 하나의 JSON 파일(`extension/data/sample_places.json`)**로 원본 데이터셋을 통합 관리합니다.
 
-### 위치 B: 브라우저 단독 실행용 (extension/content.js)
-- [extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js) 파일 내부의 `const MOCK_DATASET = { ... };` 객체 안에 템플릿 데이터를 추가하면 백엔드 없이도 확장프로그램에서 즉시 표시됩니다.
+### 📌 단일 데이터셋 원본 파일
+- 📄 **[extension/data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/data/sample_places.json)**
 
-### 위치 C: FastAPI 서버용 (backend/main.py)
-- [backend/main.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/main.py) 파일 내부의 `UCSD_MOCK_DATABASE = { ... }` 객체에 추가하거나, DB/LLM 분석 파이프라인 데이터베이스 테이블에 등록하여 사용합니다.
+### 🔄 각 모듈별 참조 방식
+1. **크롬 확장프로그램 ([extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js))**:
+   - `chrome.runtime.getURL('data/sample_places.json')`을 통해 동적으로 읽어오므로 백엔드가 없을 때도 이 단일 파일 데이터를 참조합니다.
+2. **FastAPI 백엔드 ([backend/database.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/database.py))**:
+   - `extension/data/sample_places.json` 경로를 동적으로 `json.load()`하여 읽어오므로, **JSON 파일 하나만 수정하면 프론트엔드와 백엔드가 동시에 갱신**됩니다.
+
+
 

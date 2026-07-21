@@ -31,7 +31,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["styles.css"],
+      "resources": ["styles.css", "data/sample_places.json"],
       "matches": [
         "https://www.google.com/*",
         "https://www.google.co.kr/*"
