@@ -422,26 +422,68 @@
   }
 
   /**
+   * 장소 선택 URL 유효성 검사
+   * - /maps/place/ 포함 여부 및 gmap_id 정규식 존재 여부 검사
+   */
+  function isPlaceSelected(url) {
+    if (!url) return false;
+    const hasPlacePath = url.includes('/maps/place/');
+    const hasGMapId = !!extractGMapId(url);
+    return hasPlacePath || hasGMapId;
+  }
+
+  /**
+   * 사이드바 패널 제거 및 상태 초기화
+   */
+  function clearSidebar() {
+    lastProcessedKey = null;
+    currentGMapId = null;
+    currentPlaceName = null;
+    if (shadowRoot) {
+      const rootEl = shadowRoot.querySelector('#gmap-decoder-root');
+      if (rootEl) {
+        rootEl.innerHTML = '';
+      }
+    }
+  }
+
+  /**
    * 4. 메인 감지 프로세스 (URL & DOM Observer)
    */
   async function processPlaceDetection(forceRefresh = false) {
-    if (!isEnabled) return;
+    if (!isEnabled) {
+      clearSidebar();
+      return;
+    }
 
     const currentUrl = window.location.href;
+
+    // 1. 단순 지도 이동/확대/축소 URL인 경우 (장소 미선택 상태 -> 패널 숨김)
+    if (!isPlaceSelected(currentUrl)) {
+      clearSidebar();
+      return;
+    }
+
+    // 2. 장소 정보 및 gmap_id 추출
     const gmapId = extractGMapId(currentUrl);
     const placeName = extractPlaceNameFromDOM();
 
     // Unique key identifying the place
     const processKey = gmapId || placeName;
 
-    if (!processKey) return;
+    // 장소 식별 실패 시 패널 숨김
+    if (!processKey) {
+      clearSidebar();
+      return;
+    }
+
     if (!forceRefresh && processKey === lastProcessedKey) return;
 
     lastProcessedKey = processKey;
     currentGMapId = gmapId;
     currentPlaceName = placeName;
 
-    console.log(`[GMap Review Decoder] 장소 감지됨 - gmap_id: ${gmapId || '없음(Fallback)'}, place_name: ${placeName || '없음'}`);
+    console.log(`[GMap Review Decoder] 유효한 장소 감지됨 - gmap_id: ${gmapId || '없음(Fallback)'}, place_name: ${placeName || '없음'}`);
 
     const { data, isMock } = await fetchCulturalAnalysis(gmapId, placeName);
     renderSidebar(data, isMock);
@@ -459,7 +501,7 @@
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         processPlaceDetection();
-      }, 600);
+      }, 500);
     });
 
     observer.observe(document.body, {
@@ -467,9 +509,27 @@
       subtree: true
     });
 
-    // Handle URL changes via history state updates
+    // SPA 히스토리 변경 (pushState/replaceState) 커스텀 감지
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+
+    history.pushState = function (...args) {
+      originalPushState.apply(this, args);
+      window.dispatchEvent(new Event('gmap_locationchange'));
+    };
+
+    history.replaceState = function (...args) {
+      originalReplaceState.apply(this, args);
+      window.dispatchEvent(new Event('gmap_locationchange'));
+    };
+
+    window.addEventListener('gmap_locationchange', () => {
+      processPlaceDetection();
+    });
+
+    // Handle URL changes via history state updates (popstate)
     window.addEventListener('popstate', () => {
-      setTimeout(() => processPlaceDetection(), 500);
+      setTimeout(() => processPlaceDetection(), 300);
     });
   }
 
@@ -486,9 +546,8 @@
       if (changes.targetCulture) targetCulture = changes.targetCulture.newValue;
       if (isEnabled) {
         processPlaceDetection(true);
-      } else if (shadowRoot) {
-        const rootEl = shadowRoot.querySelector('#gmap-decoder-root');
-        if (rootEl) rootEl.innerHTML = '';
+      } else {
+        clearSidebar();
       }
     });
   } else {
