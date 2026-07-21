@@ -119,8 +119,12 @@
 
 ## 💡 5. 코드 반영 위치 안내
 
-### 위치 A: 브라우저 단독 실행용 (content.js)
-- [content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/content.js) 파일 내부의 `const MOCK_DATASET = { ... };` 객체 안에 템플릿 데이터를 추가하면 백엔드 없이도 확장프로그램에서 즉시 표시됩니다.
+### 위치 A: 샘플 데이터 마크다운/JSON (data/)
+- [data/sample_places.json](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/data/sample_places.json) 파일에 새로운 장소 JSON을 추가하여 중앙 관리합니다.
 
-### 위치 B: FastAPI 서버용 (backend_mock.py)
-- [backend_mock.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend_mock.py) 파일 내부의 `UCSD_MOCK_DATABASE = { ... }` 객체에 추가하거나, DB/LLM 분석 파이프라인 데이터베이스 테이블에 등록하여 사용합니다.
+### 위치 B: 브라우저 단독 실행용 (extension/content.js)
+- [extension/content.js](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/extension/content.js) 파일 내부의 `const MOCK_DATASET = { ... };` 객체 안에 템플릿 데이터를 추가하면 백엔드 없이도 확장프로그램에서 즉시 표시됩니다.
+
+### 위치 C: FastAPI 서버용 (backend/main.py)
+- [backend/main.py](file:///e:/workspace/agy_workspace/gmaps-culturate-extension/backend/main.py) 파일 내부의 `UCSD_MOCK_DATABASE = { ... }` 객체에 추가하거나, DB/LLM 분석 파이프라인 데이터베이스 테이블에 등록하여 사용합니다.
+
