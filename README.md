@@ -8,6 +8,7 @@
 
 | 문서명 | 주요 내용 | 링크 |
 | :--- | :--- | :---: |
+| 🐍 **BACKEND_SETUP.md** | 백엔드 파이썬 가상환경(`.venv`) 설정, 패키지 설치, PowerShell 권한 & 실행 가이드 | [바로가기](BACKEND_SETUP.md) |
 | 📊 **DATA_SPEC.md** | 데이터 스키마 명세, `gmap_id` 추출 규격, 신규 장소 JSON 추가 가이드 | [바로가기](DATA_SPEC.md) |
 | 🛠️ **TROUBLESHOOTING.md** | 프로젝트 개발 중 발생한 에러 로그, 원인 분석 및 해결 내역 기록 | [바로가기](TROUBLESHOOTING.md) |
 | 📦 **sample_places.json** | UCSD 규격 샘플 데이터셋 (CAVA, 선농단, 북창동순두부, 피터루거) | [바로가기](data/sample_places.json) |
@@ -35,6 +36,7 @@ gmaps-culturate-extension/  (최상위 루트)
 │   └── sample_places.json # 장소별 보정 리뷰 샘플 데이터
 │
 ├── .gitignore             # Python/OS/IDE 캐시 파일 제외 설정
+├── BACKEND_SETUP.md       # 백엔드 가상환경 및 실행 가이드 문서
 ├── DATA_SPEC.md           # 데이터 스키마 및 신규 장소 추가 가이드
 ├── TROUBLESHOOTING.md     # 주요 오류 발생 및 해결 이력 트러블슈팅 문서
 └── README.md              # 프로젝트 안내 문서
