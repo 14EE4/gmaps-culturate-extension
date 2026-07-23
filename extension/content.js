@@ -276,12 +276,14 @@
           text = (card.innerText || card.textContent || '').replace(author, '').trim();
         }
 
-        // 텍스트 정화 (Clean Up UI Buttons & Metadata Noise)
+        // 텍스트 정화 (Clean Up UI Buttons, Dates, & Metadata Noise)
         text = text
-          .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/g, '')
-          .replace(/리뷰\s*\d+개[^\n]*/g, '')
-          .replace(/\b(자세히 보기|좋아요|공유|업체 대표 응답[^\n]*)\b/g, '')
+          .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '')
+          .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/gi, '')
+          .replace(/리뷰\s*\d+개[^\n]*/gi, '')
+          .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[^\n]*)/gi, '')
           .replace(/\n+/g, ' ')
+          .replace(/\s+/g, ' ')
           .trim();
 
         // 중복 방지 키 생성 (author + text 20자)
@@ -303,8 +305,19 @@
       if (currentAnalysisData) {
         const prevCount = (currentAnalysisData.native_korean_reviews || []).length;
         currentAnalysisData.native_korean_reviews = reviews;
-        // 새로운 리뷰가 추가되었을 경우 사이드바 UI 동적 갱신
-        if (reviews.length !== prevCount && shadowRoot) {
+
+        // 실제 탐지된 한국인 리뷰 평점 평균 계산 및 반영
+        const ratedReviews = reviews.filter(r => typeof r.rating === 'number' && !isNaN(r.rating));
+        if (ratedReviews.length > 0) {
+          const sum = ratedReviews.reduce((acc, r) => acc + r.rating, 0);
+          const avgKrRating = parseFloat((sum / ratedReviews.length).toFixed(1));
+          currentAnalysisData.korean_rating = avgKrRating;
+          currentAnalysisData.isRealKoreanReviewsReflected = true;
+          console.log(`[GMap Review Decoder] 실제 한국인 리뷰 평점 평균(${ratedReviews.length}건) 반영 완료: ${avgKrRating}`);
+        }
+
+        // 사이드바 UI 동적 갱신
+        if (shadowRoot) {
           renderSidebar(currentAnalysisData, currentIsMock);
         }
       }
