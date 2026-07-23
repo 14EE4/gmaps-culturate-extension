@@ -208,11 +208,15 @@
 
     // Google 자동 번역 감지 키워드 (외국어 자동 번역본 제외)
     const translationKeywords = [
+      'Google 제공 번역',
+      'Google 제공',
       'Google 번역',
       'Google에서 번역함',
       'Google에서 번역한 내용',
       'Google 번역됨',
       'Translated by Google',
+      'Translated with Google',
+      '원본 보기',
       'Original'
     ];
 
@@ -232,12 +236,14 @@
    */
   function extractNativeKoreanReviewsFromDOM() {
     const reviews = [];
+    const seenKeys = new Set();
+
     try {
       const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
       const root = mainPane || document;
 
-      // 구글 맵스 리뷰 카드 선택자 (div.jftiEf, div[data-review-id], div.gWSYe 등)
-      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.gWSYe, div.My5W2b'));
+      // 구글 맵스 최상위 리뷰 카드 컨테이너 선택자 (하위 중복 선택자 제거)
+      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id]'));
 
       reviewCards.forEach(card => {
         if (!isNativeKoreanReview(card)) return;
@@ -249,7 +255,7 @@
           author = authorEl.textContent.trim();
         }
 
-        // 리뷰 별점 점수 추출 (aria-label="별표 5개 중 4개" 또는 aria-label="4 stars" 등)
+        // 별점 점수 추출 (aria-label="별표 5개 중 4개" 또는 aria-label="4 stars" 등)
         let rating = null;
         const ratingEl = card.querySelector('span.kvMYJc[aria-label], span[role="img"][aria-label], [aria-label*="별표"], [aria-label*="star"]');
         if (ratingEl) {
@@ -260,21 +266,34 @@
           }
         }
 
-        // 리뷰 본문 텍스트 추출 (.wi3w8d, .My5W2b 등)
+        // 리뷰 본문 텍스트 추출 (.wi3w8d, .My5W2b 등) 및 UI 노이즈 문구 정화
         let text = '';
-        const textEl = card.querySelector('.wi3w8d, .My5W2b, [class*="wi3w8d"]');
+        const textEl = card.querySelector('.wi3w8d, [class*="wi3w8d"]');
         if (textEl && textEl.textContent.trim()) {
           text = textEl.textContent.trim();
         } else {
-          // 본문 선택자가 따로 없을 경우 전체 카드 텍스트 사용
+          // 본문 선택자가 따로 없을 경우 전체 카드 텍스트에서 프로필/버튼 문구 제거
           text = (card.innerText || card.textContent || '').replace(author, '').trim();
         }
 
-        reviews.push({
-          author,
-          rating,
-          text
-        });
+        // 텍스트 정화 (Clean Up UI Buttons & Metadata Noise)
+        text = text
+          .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/g, '')
+          .replace(/리뷰\s*\d+개[^\n]*/g, '')
+          .replace(/\b(자세히 보기|좋아요|공유|업체 대표 응답[^\n]*)\b/g, '')
+          .replace(/\n+/g, ' ')
+          .trim();
+
+        // 중복 방지 키 생성 (author + text 20자)
+        const uniqueKey = `${author}_${text.substring(0, 30)}`;
+        if (!seenKeys.has(uniqueKey)) {
+          seenKeys.add(uniqueKey);
+          reviews.push({
+            author,
+            rating,
+            text
+          });
+        }
       });
 
       if (reviews.length > 0) {
