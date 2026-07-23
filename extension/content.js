@@ -165,20 +165,44 @@
   }
 
   /**
-   * DOM에서 장소 이름 fallback 추출
+   * DOM에서 장소 이름 추출 (스폰서/광고 라벨 예외 처리)
    */
   function extractPlaceNameFromDOM() {
-    // Google Maps 주 h1 요소 구문 검사
-    const h1Elements = Array.from(document.querySelectorAll('h1'));
+    // 1. h1 셀렉터 탐색 (h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1)
+    const h1Elements = Array.from(document.querySelectorAll('h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1'));
+
     for (const h1 of h1Elements) {
-      const text = h1.textContent.trim();
-      if (text && text !== 'Google Maps' && text !== '구글 지도' && text.length > 1) {
-        return text;
+      let text = (h1.innerText || h1.textContent || '').trim();
+      if (!text) continue;
+
+      // 스폰서 및 광고 뱃지 키워드 정문화 (스폰서, Sponsor, Ad, 광고)
+      let cleanName = text
+        .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
+        .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n+/g, ' ')
+        .trim();
+
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도' && cleanName.length > 1) {
+        return cleanName;
       }
     }
-    // fallback 클래스 검색
-    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, [role="main"] h1');
-    return titleEl ? titleEl.textContent.trim() : null;
+
+    // 2. Fallback 클래스 탐색
+    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, .DU314e');
+    if (titleEl) {
+      let cleanName = (titleEl.innerText || titleEl.textContent || '')
+        .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
+        .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n+/g, ' ')
+        .trim();
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도') {
+        return cleanName;
+      }
+    }
+
+    return null;
   }
 
   /**
