@@ -302,13 +302,19 @@
           text = (card.innerText || card.textContent || '').replace(author, '').trim();
         }
 
-        // 텍스트 정화 (Clean Up UI Buttons, Dates, Media Timestamps, & Metadata Noise)
+        // 텍스트 정화 (Clean Up UI Buttons, Dates, Media Timestamps, Survey Cut-off, & Metadata Noise)
+        text = text.replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
+
+        // 구글 폼 설문 및 상세 평가 옵션 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
+        const surveyCutoffRegex = /(?:식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
+        if (surveyCutoffRegex.test(text)) {
+          text = text.split(surveyCutoffRegex)[0];
+        }
+
         text = text
-          .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '')
           .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/gi, '')
           .replace(/리뷰\s*\d+개[^\n]*/gi, '')
-          .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[^\n]*)/gi, '')
-          .replace(/(?:식사 유형|음식점 유형|가격대|추천 메뉴|방문 목적)[^\n]*/gi, '')
+          .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[\s\S]*)/gi, '')
           .replace(/\b\d+:\d+\b/g, '')
           .replace(/\+\d+/g, '')
           .replace(/\s+\d+\s*$/g, '')
