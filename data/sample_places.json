@@ -71,6 +71,30 @@
     ]
   },
 
+  "0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a": {
+    "gmap_id": "0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a",
+    "place_name": "북창동 순두부 (BCD Tofu House LA)",
+    "local_rating": 4.5,
+    "korean_rating": 4.0,
+    "culture_summary": "LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.",
+    "metrics": {
+      "taste": { "local": 4.6, "kr": 4.0 },
+      "service": { "local": 4.3, "kr": 3.8 },
+      "value": { "local": 4.1, "kr": 3.5 },
+      "atmosphere": { "local": 4.4, "kr": 4.0 }
+    },
+    "nuance_tags": [
+      {
+        "literal": "\"Best BCD Tofu in K-Town LA\"",
+        "meaning": "LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음."
+      },
+      {
+        "literal": "\"Authentic Korean spicy tofu stew\"",
+        "meaning": "매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천."
+      }
+    ]
+  },
+
   "0x89c259837920ab4d:0xcf20c1507df05e54": {
     "gmap_id": "0x89c259837920ab4d:0xcf20c1507df05e54",
     "place_name": "Peter Luger Steak House",
