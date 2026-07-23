@@ -295,27 +295,26 @@
         // 원본 DOM 텍스트 보존
         const rawText = (card.innerText || card.textContent || '').trim();
 
-        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 날짜 제거 -> 3) 설문 절단(split) -> 4) 노이즈 세탁
+        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 작성자/프로필/날짜 제거 -> 3) UI 버튼 & 설문 키워드 절단(Cut-off) -> 4) 노이즈 세탁
         let text = rawText.replace(/\u00A0/g, ' ');
 
         if (author && author !== '익명') {
           text = text.replace(author, '');
         }
 
-        // 1. 날짜 제거
-        text = text.replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
+        // 1. 프로필 메타데이터 및 상단 날짜 제거
+        text = text
+          .replace(/지역 가이드\s*·\s*리뷰\s*[\d,]+개(?:\s*·\s*사진\s*[\d,]+장)?/gi, '')
+          .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
 
-        // 2. 구글 폼 설문 및 상세 평가 옵션 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
-        const surveyCutoffRegex = /(?:식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
-        if (surveyCutoffRegex.test(text)) {
-          text = text.split(surveyCutoffRegex)[0];
+        // 2. UI 버튼("자세히 보기", "좋아요", "공유") 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
+        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
+        if (uiCutoffRegex.test(text)) {
+          text = text.split(uiCutoffRegex)[0];
         }
 
-        // 3. 버튼, 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거
+        // 3. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거
         text = text
-          .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/gi, '')
-          .replace(/리뷰\s*\d+개[^\n]*/gi, '')
-          .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[\s\S]*)/gi, '')
           .replace(/\b\d+:\d+\b/g, '')
           .replace(/\+\d+/g, '')
           .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
