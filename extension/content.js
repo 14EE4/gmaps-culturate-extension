@@ -302,12 +302,16 @@
           text = (card.innerText || card.textContent || '').replace(author, '').trim();
         }
 
-        // 텍스트 정화 (Clean Up UI Buttons, Dates, & Metadata Noise)
+        // 텍스트 정화 (Clean Up UI Buttons, Dates, Media Timestamps, & Metadata Noise)
         text = text
           .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '')
           .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/gi, '')
           .replace(/리뷰\s*\d+개[^\n]*/gi, '')
           .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[^\n]*)/gi, '')
+          .replace(/(?:식사 유형|음식점 유형|가격대|추천 메뉴|방문 목적)[^\n]*/gi, '')
+          .replace(/\b\d+:\d+\b/g, '')
+          .replace(/\+\d+/g, '')
+          .replace(/\s+\d+\s*$/g, '')
           .replace(/\n+/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
