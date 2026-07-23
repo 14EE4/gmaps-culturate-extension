@@ -292,35 +292,41 @@
           }
         }
 
-        // 리뷰 본문 텍스트 추출 (.wi3w8d, .My5W2b 등) 및 UI 노이즈 문구 정화
-        let text = '';
-        const textEl = card.querySelector('.wi3w8d, [class*="wi3w8d"]');
-        if (textEl && textEl.textContent.trim()) {
-          text = textEl.textContent.trim();
-        } else {
-          // 본문 선택자가 따로 없을 경우 전체 카드 텍스트에서 프로필/버튼 문구 제거
-          text = (card.innerText || card.textContent || '').replace(author, '').trim();
+        // 원본 DOM 텍스트 보존
+        const rawText = (card.innerText || card.textContent || '').trim();
+
+        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 날짜 제거 -> 3) 설문 절단(split) -> 4) 노이즈 세탁
+        let text = rawText.replace(/\u00A0/g, ' ');
+
+        if (author && author !== '익명') {
+          text = text.replace(author, '');
         }
 
-        // 텍스트 정화 (Clean Up UI Buttons, Dates, Media Timestamps, Survey Cut-off, & Metadata Noise)
+        // 1. 날짜 제거
         text = text.replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
 
-        // 구글 폼 설문 및 상세 평가 옵션 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
+        // 2. 구글 폼 설문 및 상세 평가 옵션 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
         const surveyCutoffRegex = /(?:식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
         if (surveyCutoffRegex.test(text)) {
           text = text.split(surveyCutoffRegex)[0];
         }
 
+        // 3. 버튼, 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거
         text = text
           .replace(/지역 가이드\s*·\s*리뷰\s*\d+개[^\n]*/gi, '')
           .replace(/리뷰\s*\d+개[^\n]*/gi, '')
           .replace(/(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답[\s\S]*)/gi, '')
           .replace(/\b\d+:\d+\b/g, '')
           .replace(/\+\d+/g, '')
-          .replace(/\s+\d+\s*$/g, '')
+          .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
           .replace(/\n+/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
+
+        // 디버깅용 RAW & CLEANED 콘솔 로그 출력
+        console.log(`[KR Reviews RAW] 👤 ${author} (★ ${rating || '미기재'})`);
+        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
+        console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
         // 중복 방지 키 생성 (author + text 20자)
         const uniqueKey = `${author}_${text.substring(0, 30)}`;
