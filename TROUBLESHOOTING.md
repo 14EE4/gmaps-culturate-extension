@@ -11,6 +11,7 @@
 4. [이슈 #4: 구글 맵스 SPA(Single Page App) URL 변경 실시간 탐지 미작동](#이슈-4-구글-맵스-spasingle-page-app-url-변경-실시간-탐지-미작동)
 5. [이슈 #5: 구글 맵스 기존 CSS와 익스텐션 UI 스타일 충돌 가능성](#이슈-5-구글-맵스-기존-css와-익스텐션-ui-스타일-충돌-가능성)
 6. [이슈 #6: Windows PowerShell 가상환경 실행 권한 오류 (`UnauthorizedAccess`)](#이슈-6-windows-powershell-가상환경-실행-권한-오류-unauthorizedaccess)
+7. [이슈 #7: 구글 맵스 SPA 비동기 DOM 렌더링 지연 및 실제 현지 평점 동적 파싱 연동](#이슈-7-구글-맵스-spa-비동기-dom-렌더링-지연-및-실제-현지-평점-동적-파싱-연동)
 
 ---
 
@@ -141,4 +142,22 @@
     ```powershell
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
     ```
+
+---
+
+### 이슈 #7: 구글 맵스 SPA 비동기 DOM 렌더링 지연 및 실제 현지 평점 동적 파싱 연동
+
+- **증상 (Symptom)**:
+  - 장소를 선택했을 때 우측 사이드바가 렌더링되나, 구글 맵스 화면의 실제 현지 별점(예: `4.7`)이 반영되지 않고 오프라인 Mock / 백엔드 기본 데이터의 평점(예: `4.4`)이 고정 표시됨.
+- **원인 분석**:
+  - 구글 맵스는 SPA(Single Page Application) 구조로 장소 클릭 후 좌측 상세 패널 DOM(`span[aria-hidden="true"]`)이 그려지는 데 100~500ms 이상의 비동기 네트워크/렌더링 지연이 발생함.
+  - `processPlaceDetection()` 실행 시점에 DOM에 평점 태그가 존재하지 않아 파싱 실패 후 Fallback 점수로 사이드바가 렌더링되고 프로세스가 종료됨.
+- **해결 조치**:
+  1. **다중 셀렉터 DOM 파싱 함수 (`extractRatingFromDOM`) 구현**:
+     - `div.F72Y3c`, `span.ceW3ed`, `span[aria-hidden="true"]` (`/^[1-5]\.\d$/`), `aria-label` 속성 등 다양한 구글 맵스 별점 구조 탐색.
+  2. **문화 보정 평점 계산 (`applyDOMRating`)**:
+     - 파싱 성공 시 실제 DOM 평점을 `local_rating`에 반영하고, 사전 데이터셋의 문화권 보정 차이값($\Delta = \text{한국인 평점} - \text{현지 평점}$)을 유지하여 `korean_rating` 자동 재계산.
+  3. **SPA 지연 로딩 대응 Retry 및 MutationObserver 연동 (`scheduleRatingRetry`)**:
+     - initial detection 실패 시 300ms, 700ms, 1200ms, 2000ms 비동기 Retry 타이머 가동.
+     - `MutationObserver` 이벤트 발생 시 동일 장소라도 DOM 평점이 새로 파싱되면 사이드바 점수를 즉시 업데이트.
 
