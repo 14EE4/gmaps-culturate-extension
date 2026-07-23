@@ -16,6 +16,10 @@
   let shadowHost = null;
   let shadowRoot = null;
   let lastProcessedKey = null;
+  let currentAnalysisData = null;
+  let currentIsMock = true;
+  let retryTimers = [];
+  let showAllReviews = false;
 
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
@@ -94,6 +98,31 @@
       ]
     },
 
+    // LA BCD Tofu House (북창동 순두부 LA) - User Requested URL
+    '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
+      gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
+      place_name: '북창동 순두부 (BCD Tofu House LA)',
+      local_rating: 4.5,
+      korean_rating: 4.0,
+      culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
+      metrics: {
+        taste: { local: 4.6, kr: 4.0 },
+        service: { local: 4.3, kr: 3.8 },
+        value: { local: 4.1, kr: 3.5 },
+        atmosphere: { local: 4.4, kr: 4.0 }
+      },
+      nuance_tags: [
+        {
+          literal: '"Best BCD Tofu in K-Town LA"',
+          meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
+        },
+        {
+          literal: '"Authentic Korean spicy tofu stew"',
+          meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
+        }
+      ]
+    },
+
     // Peter Luger Steak House NY
     '0x89c259837920ab4d:0xcf20c1507df05e54': {
       gmap_id: '0x89c259837920ab4d:0xcf20c1507df05e54',
@@ -136,20 +165,285 @@
   }
 
   /**
-   * DOM에서 장소 이름 fallback 추출
+   * DOM에서 장소 이름 추출 (스폰서/광고 라벨 예외 처리)
    */
   function extractPlaceNameFromDOM() {
-    // Google Maps 주 h1 요소 구문 검사
-    const h1Elements = Array.from(document.querySelectorAll('h1'));
+    // 1. h1 셀렉터 탐색 (h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1)
+    const h1Elements = Array.from(document.querySelectorAll('h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1'));
+
     for (const h1 of h1Elements) {
-      const text = h1.textContent.trim();
-      if (text && text !== 'Google Maps' && text !== '구글 지도' && text.length > 1) {
-        return text;
+      let text = (h1.innerText || h1.textContent || '').trim();
+      if (!text) continue;
+
+      // 스폰서 및 광고 뱃지 키워드 정문화 (스폰서, Sponsor, Ad, 광고)
+      let cleanName = text
+        .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
+        .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n+/g, ' ')
+        .trim();
+
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도' && cleanName.length > 1) {
+        return cleanName;
       }
     }
-    // fallback 클래스 검색
-    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, [role="main"] h1');
-    return titleEl ? titleEl.textContent.trim() : null;
+
+    // 2. Fallback 클래스 탐색
+    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, .DU314e');
+    if (titleEl) {
+      let cleanName = (titleEl.innerText || titleEl.textContent || '')
+        .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
+        .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/\n+/g, ' ')
+        .trim();
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도') {
+        return cleanName;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱
+   */
+  function extractRatingFromDOM() {
+    try {
+      // 우선순위 1: 구글 맵스 장소 상세 패널 컨테이너
+      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
+      const root = mainPane || document;
+
+      // 1-1. 전용 클래스 검사 (div.F72Y3c, span.ceW3ed 등)
+      const knownClassEl = root.querySelector('div.F72Y3c, span.ceW3ed, div.fontBodyMedium span[aria-hidden="true"]');
+      if (knownClassEl) {
+        const val = parseFloat(knownClassEl.textContent.trim());
+        if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+      }
+
+      // 1-2. aria-label 기반 평점 추출 (예: "4.7 별표", "4.7 stars", "4.7 out of 5 stars")
+      const ariaEl = root.querySelector('[aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of 5"]');
+      if (ariaEl) {
+        const label = ariaEl.getAttribute('aria-label') || '';
+        const match = label.match(/([1-5]\.\d)/);
+        if (match) {
+          const val = parseFloat(match[1]);
+          if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+        }
+      }
+
+      // 1-3. span[aria-hidden="true"] 중 소수점 평점 형태(/^[1-5]\.\d$/) 검색
+      const spanElements = Array.from(root.querySelectorAll('span[aria-hidden="true"], span'));
+      for (const span of spanElements) {
+        const text = span.textContent.trim();
+        if (/^[1-5]\.\d$/.test(text)) {
+          const val = parseFloat(text);
+          if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+        }
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 평점 추출 중 오류:', e);
+    }
+    return null;
+  }
+
+  /**
+   * 1. 리뷰 카드 DOM이 원문 한국어 리뷰인지 판별 (구글 번역 문구 제외 & 한글 유니코드 검사)
+   */
+  function isNativeKoreanReview(reviewEl) {
+    if (!reviewEl) return false;
+
+    const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
+    if (!fullText) return false;
+
+    // Google 자동 번역 감지 키워드 (외국어 자동 번역본 제외)
+    const translationKeywords = [
+      'Google 제공 번역',
+      'Google 제공',
+      'Google 번역',
+      'Google에서 번역함',
+      'Google에서 번역한 내용',
+      'Google 번역됨',
+      'Translated by Google',
+      'Translated with Google',
+      '원본 보기',
+      'Original'
+    ];
+
+    for (const keyword of translationKeywords) {
+      if (fullText.includes(keyword)) {
+        return false;
+      }
+    }
+
+    // 한글 유니코드 범위(/[\uAC00-\uD7A3]/) 검사로 한국어 원문 포함 여부 판단
+    return /[\uAC00-\uD7A3]/.test(fullText);
+  }
+
+  /**
+   * 2. DOM에서 순수 한국인 리뷰 카드 파싱 (작성자, 별점, 리뷰 본문)
+   * @returns {Array<{author: string, rating: number|null, text: string}>}
+   */
+  function extractNativeKoreanReviewsFromDOM() {
+    const reviews = [];
+    const seenKeys = new Set();
+
+    try {
+      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
+      const root = mainPane || document;
+
+      // 구글 맵스 최상위 리뷰 카드 컨테이너 선택자 (하위 중복 선택자 제거)
+      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id]'));
+
+      reviewCards.forEach(card => {
+        if (!isNativeKoreanReview(card)) return;
+
+        // 작성자 닉네임 추출
+        let author = '익명';
+        const authorEl = card.querySelector('.d4r55, button.alhrr, .X43fe-geL2f-haAclf, [class*="author"]');
+        if (authorEl && authorEl.textContent.trim()) {
+          author = authorEl.textContent.trim();
+        }
+
+        // 별점 점수 추출 (aria-label="별표 5개 중 4개" 또는 aria-label="4 stars" 등)
+        let rating = null;
+        const ratingEl = card.querySelector('span.kvMYJc[aria-label], span[role="img"][aria-label], [aria-label*="별표"], [aria-label*="star"]');
+        if (ratingEl) {
+          const ariaText = ratingEl.getAttribute('aria-label') || '';
+          const match = ariaText.match(/([1-5])(?:개|\.0|\s*star|\/5)/i) || ariaText.match(/([1-5]\.\d)/) || ariaText.match(/([1-5])/);
+          if (match && match[1]) {
+            rating = parseFloat(match[1]);
+          }
+        }
+
+        // 원본 DOM 텍스트 보존
+        const rawText = (card.innerText || card.textContent || '').trim();
+
+        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 작성자/프로필/날짜 제거 -> 3) UI 버튼 & 설문 키워드 절단(Cut-off) -> 4) 노이즈 세탁
+        let text = rawText.replace(/\u00A0/g, ' ');
+
+        if (author && author !== '익명') {
+          text = text.replace(author, '');
+        }
+
+        // 1. 프로필 메타데이터 및 상단 날짜 제거
+        text = text
+          .replace(/지역 가이드\s*·\s*리뷰\s*[\d,]+개(?:\s*·\s*사진\s*[\d,]+장)?/gi, '')
+          .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
+
+        // 2. UI 버튼("자세히 보기", "좋아요", "공유") 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
+        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
+        if (uiCutoffRegex.test(text)) {
+          text = text.split(uiCutoffRegex)[0];
+        }
+
+        // 3. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거
+        text = text
+          .replace(/\b\d+:\d+\b/g, '')
+          .replace(/\+\d+/g, '')
+          .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
+          .replace(/\n+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        // 디버깅용 RAW & CLEANED 콘솔 로그 출력
+        console.log(`[KR Reviews RAW] 👤 ${author} (★ ${rating || '미기재'})`);
+        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
+        console.log(`  └ [세탁 후]:`, JSON.stringify(text));
+
+        // 중복 방지 키 생성 (author + text 20자)
+        const uniqueKey = `${author}_${text.substring(0, 30)}`;
+        if (!seenKeys.has(uniqueKey)) {
+          seenKeys.add(uniqueKey);
+          reviews.push({
+            author,
+            rating,
+            text
+          });
+        }
+      });
+
+      if (reviews.length > 0) {
+        console.log(`[KR Reviews] 순수 한국인 리뷰 파싱 완료 (${reviews.length}건):`, reviews);
+      }
+
+      if (currentAnalysisData) {
+        const prevReviewsStr = JSON.stringify(currentAnalysisData.native_korean_reviews || []);
+        const newReviewsStr = JSON.stringify(reviews);
+        const prevRating = currentAnalysisData.korean_rating;
+
+        currentAnalysisData.native_korean_reviews = reviews;
+
+        // 실제 탐지된 한국인 리뷰 평점 평균 계산 및 반영
+        const ratedReviews = reviews.filter(r => typeof r.rating === 'number' && !isNaN(r.rating));
+        if (ratedReviews.length > 0) {
+          const sum = ratedReviews.reduce((acc, r) => acc + r.rating, 0);
+          const avgKrRating = parseFloat((sum / ratedReviews.length).toFixed(1));
+          currentAnalysisData.korean_rating = avgKrRating;
+          currentAnalysisData.hasKoreanData = true;
+          currentAnalysisData.isRealKoreanReviewsReflected = true;
+          currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${ratedReviews.length}건의 평점 평균(★ ${avgKrRating})이 반영되었습니다.`;
+        }
+
+        const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
+
+        // 실제로 데이터가 변경되었을 때만 사이드바 UI 동적 갱신 (불필요한 re-render 및 깜빡임 차단)
+        if (isDataChanged && shadowRoot) {
+          renderSidebar(currentAnalysisData, currentIsMock);
+        }
+      }
+    } catch (e) {
+      console.error('[KR Reviews] 리뷰 파싱 중 오류:', e);
+    }
+
+    return reviews;
+  }
+
+  /**
+   * DOM에서 파싱한 실제 평점을 analysis data에 적용 및 한국인 보정 평점 재계산
+   */
+  function applyDOMRating(data) {
+    if (!data) return false;
+    const rawRating = extractRatingFromDOM();
+    if (rawRating !== null) {
+      const oldLocal = data.local_rating;
+      data.local_rating = rawRating;
+
+      // 한국인 보정 데이터가 존재하는 경우에만 평점 재계산
+      if (typeof data.korean_rating === 'number' && !isNaN(data.korean_rating)) {
+        let delta = data.korean_rating - oldLocal;
+        const calculatedKr = Math.max(1.0, Math.min(5.0, rawRating + delta));
+        data.korean_rating = parseFloat(calculatedKr.toFixed(1));
+      }
+
+      data.isDOMParsed = true;
+      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal})`);
+      return true;
+    }
+    return false;
+  }
+
+  function clearRetryTimers() {
+    retryTimers.forEach(id => clearTimeout(id));
+    retryTimers = [];
+  }
+
+  function scheduleRatingRetry(data, isMock) {
+    clearRetryTimers();
+    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms 시점에 retry
+    const delays = [300, 700, 1200, 2000];
+    delays.forEach(delay => {
+      const timerId = setTimeout(() => {
+        if (!isEnabled || !shadowRoot) return;
+        const currentDOMRating = extractRatingFromDOM();
+        extractNativeKoreanReviewsFromDOM();
+        if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
+          applyDOMRating(data);
+          renderSidebar(data, isMock);
+        }
+      }, delay);
+      retryTimers.push(timerId);
+    });
   }
 
   /**
@@ -183,44 +477,35 @@
    * Dynamic Mock Data Generator
    */
   function generateMockData(gmapId, placeName) {
-    // 1. UCSD Dataset Key에 일치하는 데이터가 있을 경우 우선 반환
+    // 1. UCSD Dataset Key에 일치하는 사전 데이터가 있을 경우 반환
     if (gmapId && MOCK_DATASET[gmapId]) {
-      return MOCK_DATASET[gmapId];
+      const cloned = JSON.parse(JSON.stringify(MOCK_DATASET[gmapId]));
+      cloned.hasKoreanData = true;
+      return cloned;
     }
 
-    // 2. 동적 Mock 생성
+    // 2. 동적 Mock 생성 (미등록 장소의 경우 임의 보정 수치 대신 '데이터 없음' 상태 반환)
     const displayName = placeName || (gmapId ? `장소 (${gmapId.substring(0, 10)}...)` : '선택된 장소');
-    
-    // Hash-based deterministic values
     const hash = simpleHash(displayName + (gmapId || ''));
     const localRating = (4.0 + (hash % 10) / 10).toFixed(1);
-    const krAdjustment = ((hash % 7) * 0.1 + 0.3).toFixed(1);
-    const koreanRating = (Math.max(3.2, parseFloat(localRating) - parseFloat(krAdjustment))).toFixed(1);
 
     return {
       gmap_id: gmapId || `0x${hash.toString(16)}:0x${(hash * 31).toString(16)}`,
       place_name: displayName,
       local_rating: parseFloat(localRating),
-      korean_rating: parseFloat(koreanRating),
-      culture_summary: `${displayName}의 현지 구글 평점 대비 한국인 평점은 가성비 및 음식의 간(짠맛/단맛) 기준 차이로 인해 보정되었습니다.`,
+      korean_rating: null,
+      hasKoreanData: false,
+      culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
       metrics: {
-        taste: { local: (4.2 + (hash % 6) / 10).toFixed(1), kr: (3.8 + (hash % 5) / 10).toFixed(1) },
-        service: { local: (4.0 + (hash % 5) / 10).toFixed(1), kr: (3.5 + (hash % 6) / 10).toFixed(1) },
-        value: { local: (4.1 + (hash % 7) / 10).toFixed(1), kr: (3.4 + (hash % 5) / 10).toFixed(1) },
+        taste: { local: (4.2 + (hash % 6) / 10).toFixed(1), kr: '3.8' },
+        service: { local: (4.0 + (hash % 5) / 10).toFixed(1), kr: '3.5' },
+        value: { local: (4.1 + (hash % 7) / 10).toFixed(1), kr: '3.4' },
         atmosphere: { local: 4.5, kr: 4.2 }
       },
       nuance_tags: [
         {
-          literal: '#간이 매우 센 편 (현지 규격)',
-          meaning: '음식이 한국인 입맛 기준 다소 짜거나 달아서 밥이나 음료 추가 필요.'
-        },
-        {
-          literal: '#팁 포함 가성비 고려 필요',
-          meaning: '가격 대비 양이나 서비스 만족도가 보통 수준임.'
-        },
-        {
-          literal: '#웨이팅 대비 평범함',
-          meaning: '대기 시간이 30분 이상일 경우 한국인 만족도 급감 위험.'
+          literal: '💬 한국인 리뷰 미감지 장소',
+          meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
         }
       ]
     };
@@ -269,12 +554,17 @@
     if (!rootEl) return;
 
     const data = analysis;
-    const delta = (data.korean_rating - data.local_rating).toFixed(1);
+    const hasKoreanData = typeof data.korean_rating === 'number' && !isNaN(data.korean_rating);
+    const delta = hasKoreanData ? (data.korean_rating - data.local_rating).toFixed(1) : '0.0';
     const deltaClass = delta >= 0 ? 'delta-up' : 'delta-down';
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
+    // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
+    const existingSidebar = rootEl.querySelector('#gmap-decoder-sidebar');
+    const isUpdate = !!existingSidebar;
+
     rootEl.innerHTML = `
-      <div id="gmap-decoder-sidebar">
+      <div id="gmap-decoder-sidebar" style="${isUpdate ? 'animation: none !important;' : ''}">
         <!-- Header -->
         <div class="decoder-header">
           <div class="header-title-group">
@@ -312,10 +602,48 @@
 
             <div class="rating-box korean-box">
               <div class="rating-label">🇰🇷 한국인 보정 평점</div>
-              <div class="rating-score">
-                <span class="stars">★</span> ${data.korean_rating} <span class="max">/ 5.0</span>
+              ${hasKoreanData ? `
+                <div class="rating-score">
+                  <span class="stars">★</span> ${data.korean_rating} <span class="max">/ 5.0</span>
+                </div>
+                <div class="rating-delta ${deltaClass}">${deltaSign} 보정됨</div>
+              ` : `
+                <div class="rating-score">
+                  <span style="font-size: 15px; color: #9ca3af; font-weight: 600;">데이터 없음</span>
+                </div>
+                <div class="rating-delta delta-none">리뷰 미감지</div>
+              `}
+            </div>
+          </div>
+
+          <!-- Real Native Korean Reviews Section (평점 박스 바로 아래 배치) -->
+          <div>
+            <div class="section-title">
+              <div>
+                <span>🇰🇷 실시간 감지된 한국인 원문 리뷰</span>
+                <span style="font-size: 11px; color: #a5b4fc; font-weight: normal; margin-left: 4px;">(${(data.native_korean_reviews || []).length}건)</span>
               </div>
-              <div class="rating-delta ${deltaClass}">${deltaSign} 보정됨</div>
+              ${(data.native_korean_reviews || []).length > 3 ? `
+                <button class="btn-toggle-reviews" id="btn-toggle-reviews">
+                  ${showAllReviews ? '접기 ▲' : `전체 보기 (${(data.native_korean_reviews || []).length}개) ▼`}
+                </button>
+              ` : ''}
+            </div>
+            <div class="native-reviews-section">
+              ${(data.native_korean_reviews || []).length > 0 ? 
+                (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
+                  <div class="native-review-card">
+                    <div class="native-review-header">
+                      <span class="native-review-author">👤 ${escapeHTML(r.author)}</span>
+                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                    </div>
+                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+                  </div>
+                `).join('') :
+                `<div class="native-review-empty">
+                   💬 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 추출된 한국인 원문 리뷰가 여기에 자동으로 반영됩니다.
+                 </div>`
+              }
             </div>
           </div>
 
@@ -378,6 +706,14 @@
         processPlaceDetection(true);
       });
     }
+
+    const toggleReviewsBtn = rootEl.querySelector('#btn-toggle-reviews');
+    if (toggleReviewsBtn) {
+      toggleReviewsBtn.addEventListener('click', () => {
+        showAllReviews = !showAllReviews;
+        renderSidebar(currentAnalysisData, currentIsMock);
+      });
+    }
   }
 
   function renderMetricBar(name, metric) {
@@ -428,9 +764,12 @@
    * 사이드바 패널 제거 및 상태 초기화
    */
   function clearSidebar() {
+    clearRetryTimers();
     lastProcessedKey = null;
     currentGMapId = null;
     currentPlaceName = null;
+    currentAnalysisData = null;
+    showAllReviews = false;
     if (shadowRoot) {
       const rootEl = shadowRoot.querySelector('#gmap-decoder-root');
       if (rootEl) {
@@ -469,7 +808,15 @@
       return;
     }
 
-    if (!forceRefresh && processKey === lastProcessedKey) return;
+    // 이미 처리된 장소인 경우에도, DOM 평점이 뒤늦게 표시되었는지 검사하여 동적 반영
+    if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
+      const domRating = extractRatingFromDOM();
+      if (domRating !== null && currentAnalysisData.local_rating !== domRating) {
+        applyDOMRating(currentAnalysisData);
+        renderSidebar(currentAnalysisData, currentIsMock);
+      }
+      return;
+    }
 
     lastProcessedKey = processKey;
     currentGMapId = gmapId;
@@ -478,7 +825,17 @@
     console.log(`[GMap Review Decoder] 유효한 장소 감지됨 - gmap_id: ${gmapId || '없음(Fallback)'}, place_name: ${placeName || '없음'}`);
 
     const { data, isMock } = await fetchCulturalAnalysis(gmapId, placeName);
-    renderSidebar(data, isMock);
+    currentAnalysisData = data;
+    currentIsMock = isMock;
+
+    // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
+    applyDOMRating(currentAnalysisData);
+    extractNativeKoreanReviewsFromDOM();
+
+    renderSidebar(currentAnalysisData, currentIsMock);
+
+    // DOM 평점이 즉시 파싱되지 않은 경우 비동기 Retry 로직 가동
+    scheduleRatingRetry(currentAnalysisData, currentIsMock);
   }
 
   /**
