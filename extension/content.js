@@ -303,7 +303,10 @@
       }
 
       if (currentAnalysisData) {
-        const prevCount = (currentAnalysisData.native_korean_reviews || []).length;
+        const prevReviewsStr = JSON.stringify(currentAnalysisData.native_korean_reviews || []);
+        const newReviewsStr = JSON.stringify(reviews);
+        const prevRating = currentAnalysisData.korean_rating;
+
         currentAnalysisData.native_korean_reviews = reviews;
 
         // 실제 탐지된 한국인 리뷰 평점 평균 계산 및 반영
@@ -313,11 +316,12 @@
           const avgKrRating = parseFloat((sum / ratedReviews.length).toFixed(1));
           currentAnalysisData.korean_rating = avgKrRating;
           currentAnalysisData.isRealKoreanReviewsReflected = true;
-          console.log(`[GMap Review Decoder] 실제 한국인 리뷰 평점 평균(${ratedReviews.length}건) 반영 완료: ${avgKrRating}`);
         }
 
-        // 사이드바 UI 동적 갱신
-        if (shadowRoot) {
+        const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
+
+        // 실제로 데이터가 변경되었을 때만 사이드바 UI 동적 갱신 (불필요한 re-render 및 깜빡임 차단)
+        if (isDataChanged && shadowRoot) {
           renderSidebar(currentAnalysisData, currentIsMock);
         }
       }
@@ -497,8 +501,12 @@
     const deltaClass = delta >= 0 ? 'delta-up' : 'delta-down';
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
+    // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
+    const existingSidebar = rootEl.querySelector('#gmap-decoder-sidebar');
+    const isUpdate = !!existingSidebar;
+
     rootEl.innerHTML = `
-      <div id="gmap-decoder-sidebar">
+      <div id="gmap-decoder-sidebar" style="${isUpdate ? 'animation: none !important;' : ''}">
         <!-- Header -->
         <div class="decoder-header">
           <div class="header-title-group">
