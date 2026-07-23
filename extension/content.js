@@ -198,6 +198,96 @@
   }
 
   /**
+   * 1. 리뷰 카드 DOM이 원문 한국어 리뷰인지 판별 (구글 번역 문구 제외 & 한글 유니코드 검사)
+   */
+  function isNativeKoreanReview(reviewEl) {
+    if (!reviewEl) return false;
+
+    const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
+    if (!fullText) return false;
+
+    // Google 자동 번역 감지 키워드 (외국어 자동 번역본 제외)
+    const translationKeywords = [
+      'Google 번역',
+      'Google에서 번역함',
+      'Google에서 번역한 내용',
+      'Google 번역됨',
+      'Translated by Google',
+      'Original'
+    ];
+
+    for (const keyword of translationKeywords) {
+      if (fullText.includes(keyword)) {
+        return false;
+      }
+    }
+
+    // 한글 유니코드 범위(/[\uAC00-\uD7A3]/) 검사로 한국어 원문 포함 여부 판단
+    return /[\uAC00-\uD7A3]/.test(fullText);
+  }
+
+  /**
+   * 2. DOM에서 순수 한국인 리뷰 카드 파싱 (작성자, 별점, 리뷰 본문)
+   * @returns {Array<{author: string, rating: number|null, text: string}>}
+   */
+  function extractNativeKoreanReviewsFromDOM() {
+    const reviews = [];
+    try {
+      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
+      const root = mainPane || document;
+
+      // 구글 맵스 리뷰 카드 선택자 (div.jftiEf, div[data-review-id], div.gWSYe 등)
+      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.gWSYe, div.My5W2b'));
+
+      reviewCards.forEach(card => {
+        if (!isNativeKoreanReview(card)) return;
+
+        // 작성자 닉네임 추출
+        let author = '익명';
+        const authorEl = card.querySelector('.d4r55, button.alhrr, .X43fe-geL2f-haAclf, [class*="author"]');
+        if (authorEl && authorEl.textContent.trim()) {
+          author = authorEl.textContent.trim();
+        }
+
+        // 리뷰 별점 점수 추출 (aria-label="별표 5개 중 4개" 또는 aria-label="4 stars" 등)
+        let rating = null;
+        const ratingEl = card.querySelector('span.kvMYJc[aria-label], span[role="img"][aria-label], [aria-label*="별표"], [aria-label*="star"]');
+        if (ratingEl) {
+          const ariaText = ratingEl.getAttribute('aria-label') || '';
+          const match = ariaText.match(/([1-5])(?:개|\.0|\s*star|\/5)/i) || ariaText.match(/([1-5]\.\d)/) || ariaText.match(/([1-5])/);
+          if (match && match[1]) {
+            rating = parseFloat(match[1]);
+          }
+        }
+
+        // 리뷰 본문 텍스트 추출 (.wi3w8d, .My5W2b 등)
+        let text = '';
+        const textEl = card.querySelector('.wi3w8d, .My5W2b, [class*="wi3w8d"]');
+        if (textEl && textEl.textContent.trim()) {
+          text = textEl.textContent.trim();
+        } else {
+          // 본문 선택자가 따로 없을 경우 전체 카드 텍스트 사용
+          text = (card.innerText || card.textContent || '').replace(author, '').trim();
+        }
+
+        reviews.push({
+          author,
+          rating,
+          text
+        });
+      });
+
+      if (reviews.length > 0) {
+        console.log(`[KR Reviews] 순수 한국인 리뷰 파싱 완료 (${reviews.length}건):`, reviews);
+      }
+    } catch (e) {
+      console.error('[KR Reviews] 리뷰 파싱 중 오류:', e);
+    }
+
+    return reviews;
+  }
+
+  /**
    * DOM에서 파싱한 실제 평점을 analysis data에 적용 및 한국인 보정 평점 재계산
    */
   function applyDOMRating(data) {
@@ -235,6 +325,7 @@
       const timerId = setTimeout(() => {
         if (!isEnabled || !shadowRoot) return;
         const currentDOMRating = extractRatingFromDOM();
+        extractNativeKoreanReviewsFromDOM();
         if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
           applyDOMRating(data);
           renderSidebar(data, isMock);
@@ -583,8 +674,9 @@
     currentAnalysisData = data;
     currentIsMock = isMock;
 
-    // DOM에서 실제 현지 평점 파싱 시도 및 반영
+    // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
     applyDOMRating(currentAnalysisData);
+    extractNativeKoreanReviewsFromDOM();
 
     renderSidebar(currentAnalysisData, currentIsMock);
 
