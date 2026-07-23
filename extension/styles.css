@@ -437,6 +437,23 @@
   line-height: 1.5;
 }
 
+.btn-toggle-reviews {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-toggle-reviews:hover {
+  background: rgba(99, 102, 241, 0.3);
+  color: #ffffff;
+}
+
 /* Footer / Status */
 .decoder-footer {
   padding: 12px 20px;

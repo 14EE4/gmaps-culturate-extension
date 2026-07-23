@@ -19,6 +19,7 @@
   let currentAnalysisData = null;
   let currentIsMock = true;
   let retryTimers = [];
+  let showAllReviews = false;
 
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
@@ -93,6 +94,31 @@
         {
           literal: '"Authentic Korean comfort food"',
           meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
+        }
+      ]
+    },
+
+    // LA BCD Tofu House (북창동 순두부 LA) - User Requested URL
+    '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
+      gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
+      place_name: '북창동 순두부 (BCD Tofu House LA)',
+      local_rating: 4.5,
+      korean_rating: 4.0,
+      culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
+      metrics: {
+        taste: { local: 4.6, kr: 4.0 },
+        service: { local: 4.3, kr: 3.8 },
+        value: { local: 4.1, kr: 3.5 },
+        atmosphere: { local: 4.4, kr: 4.0 }
+      },
+      nuance_tags: [
+        {
+          literal: '"Best BCD Tofu in K-Town LA"',
+          meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
+        },
+        {
+          literal: '"Authentic Korean spicy tofu stew"',
+          meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
         }
       ]
     },
@@ -551,6 +577,37 @@
             </div>
           </div>
 
+          <!-- Real Native Korean Reviews Section (평점 박스 바로 아래 배치) -->
+          <div>
+            <div class="section-title">
+              <div>
+                <span>🇰🇷 실시간 감지된 한국인 원문 리뷰</span>
+                <span style="font-size: 11px; color: #a5b4fc; font-weight: normal; margin-left: 4px;">(${(data.native_korean_reviews || []).length}건)</span>
+              </div>
+              ${(data.native_korean_reviews || []).length > 3 ? `
+                <button class="btn-toggle-reviews" id="btn-toggle-reviews">
+                  ${showAllReviews ? '접기 ▲' : `전체 보기 (${(data.native_korean_reviews || []).length}개) ▼`}
+                </button>
+              ` : ''}
+            </div>
+            <div class="native-reviews-section">
+              ${(data.native_korean_reviews || []).length > 0 ? 
+                (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
+                  <div class="native-review-card">
+                    <div class="native-review-header">
+                      <span class="native-review-author">👤 ${escapeHTML(r.author)}</span>
+                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                    </div>
+                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+                  </div>
+                `).join('') :
+                `<div class="native-review-empty">
+                   💬 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 추출된 한국인 원문 리뷰가 여기에 자동으로 반영됩니다.
+                 </div>`
+              }
+            </div>
+          </div>
+
           <!-- Rationale Box -->
           <div class="rationale-box">
             <div class="rationale-title">💡 문화권 평점 보정 요약</div>
@@ -583,30 +640,6 @@
               `).join('')}
             </div>
           </div>
-
-          <!-- Real Native Korean Reviews Section -->
-          <div>
-            <div class="section-title">
-              <span>🇰🇷 실시간 감지된 한국인 원문 리뷰</span>
-              <span style="font-size: 11px; color: #a5b4fc; font-weight: normal;">(${data.native_korean_reviews ? data.native_korean_reviews.length : 0}건)</span>
-            </div>
-            <div class="native-reviews-section">
-              ${data.native_korean_reviews && data.native_korean_reviews.length > 0 ? 
-                data.native_korean_reviews.map(r => `
-                  <div class="native-review-card">
-                    <div class="native-review-header">
-                      <span class="native-review-author">👤 ${escapeHTML(r.author)}</span>
-                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
-                    </div>
-                    <div class="native-review-text">${escapeHTML(r.text)}</div>
-                  </div>
-                `).join('') :
-                `<div class="native-review-empty">
-                   💬 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 추출된 한국인 원문 리뷰가 여기에 자동으로 반영됩니다.
-                 </div>`
-              }
-            </div>
-          </div>
         </div>
 
         <!-- Footer -->
@@ -632,6 +665,14 @@
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => {
         processPlaceDetection(true);
+      });
+    }
+
+    const toggleReviewsBtn = rootEl.querySelector('#btn-toggle-reviews');
+    if (toggleReviewsBtn) {
+      toggleReviewsBtn.addEventListener('click', () => {
+        showAllReviews = !showAllReviews;
+        renderSidebar(currentAnalysisData, currentIsMock);
       });
     }
   }
@@ -689,6 +730,7 @@
     currentGMapId = null;
     currentPlaceName = null;
     currentAnalysisData = null;
+    showAllReviews = false;
     if (shadowRoot) {
       const rootEl = shadowRoot.querySelector('#gmap-decoder-root');
       if (rootEl) {
