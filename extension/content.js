@@ -299,6 +299,15 @@
       if (reviews.length > 0) {
         console.log(`[KR Reviews] 순수 한국인 리뷰 파싱 완료 (${reviews.length}건):`, reviews);
       }
+
+      if (currentAnalysisData) {
+        const prevCount = (currentAnalysisData.native_korean_reviews || []).length;
+        currentAnalysisData.native_korean_reviews = reviews;
+        // 새로운 리뷰가 추가되었을 경우 사이드바 UI 동적 갱신
+        if (reviews.length !== prevCount && shadowRoot) {
+          renderSidebar(currentAnalysisData, currentIsMock);
+        }
+      }
     } catch (e) {
       console.error('[KR Reviews] 리뷰 파싱 중 오류:', e);
     }
@@ -551,6 +560,30 @@
                   <div class="tag-meaning"><strong>#실제 의미:</strong> ${escapeHTML(tag.meaning)}</div>
                 </div>
               `).join('')}
+            </div>
+          </div>
+
+          <!-- Real Native Korean Reviews Section -->
+          <div>
+            <div class="section-title">
+              <span>🇰🇷 실시간 감지된 한국인 원문 리뷰</span>
+              <span style="font-size: 11px; color: #a5b4fc; font-weight: normal;">(${data.native_korean_reviews ? data.native_korean_reviews.length : 0}건)</span>
+            </div>
+            <div class="native-reviews-section">
+              ${data.native_korean_reviews && data.native_korean_reviews.length > 0 ? 
+                data.native_korean_reviews.map(r => `
+                  <div class="native-review-card">
+                    <div class="native-review-header">
+                      <span class="native-review-author">👤 ${escapeHTML(r.author)}</span>
+                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                    </div>
+                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+                  </div>
+                `).join('') :
+                `<div class="native-review-empty">
+                   💬 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 추출된 한국인 원문 리뷰가 여기에 자동으로 반영됩니다.
+                 </div>`
+              }
             </div>
           </div>
         </div>
