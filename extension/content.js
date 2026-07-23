@@ -16,6 +16,9 @@
   let shadowHost = null;
   let shadowRoot = null;
   let lastProcessedKey = null;
+  let currentAnalysisData = null;
+  let currentIsMock = true;
+  let retryTimers = [];
 
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
@@ -150,6 +153,95 @@
     // fallback 클래스 검색
     const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, [role="main"] h1');
     return titleEl ? titleEl.textContent.trim() : null;
+  }
+
+  /**
+   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱
+   */
+  function extractRatingFromDOM() {
+    try {
+      // 우선순위 1: 구글 맵스 장소 상세 패널 컨테이너
+      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
+      const root = mainPane || document;
+
+      // 1-1. 전용 클래스 검사 (div.F72Y3c, span.ceW3ed 등)
+      const knownClassEl = root.querySelector('div.F72Y3c, span.ceW3ed, div.fontBodyMedium span[aria-hidden="true"]');
+      if (knownClassEl) {
+        const val = parseFloat(knownClassEl.textContent.trim());
+        if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+      }
+
+      // 1-2. aria-label 기반 평점 추출 (예: "4.7 별표", "4.7 stars", "4.7 out of 5 stars")
+      const ariaEl = root.querySelector('[aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of 5"]');
+      if (ariaEl) {
+        const label = ariaEl.getAttribute('aria-label') || '';
+        const match = label.match(/([1-5]\.\d)/);
+        if (match) {
+          const val = parseFloat(match[1]);
+          if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+        }
+      }
+
+      // 1-3. span[aria-hidden="true"] 중 소수점 평점 형태(/^[1-5]\.\d$/) 검색
+      const spanElements = Array.from(root.querySelectorAll('span[aria-hidden="true"], span'));
+      for (const span of spanElements) {
+        const text = span.textContent.trim();
+        if (/^[1-5]\.\d$/.test(text)) {
+          const val = parseFloat(text);
+          if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+        }
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 평점 추출 중 오류:', e);
+    }
+    return null;
+  }
+
+  /**
+   * DOM에서 파싱한 실제 평점을 analysis data에 적용 및 한국인 보정 평점 재계산
+   */
+  function applyDOMRating(data) {
+    if (!data) return false;
+    const rawRating = extractRatingFromDOM();
+    if (rawRating !== null) {
+      // 기존 문화 보정 패널티(delta = korean_rating - local_rating) 계산 및 보존
+      let delta = -0.6;
+      if (typeof data.local_rating === 'number' && typeof data.korean_rating === 'number') {
+        delta = data.korean_rating - data.local_rating;
+      }
+
+      const oldLocal = data.local_rating;
+      data.local_rating = rawRating;
+      const calculatedKr = Math.max(1.0, Math.min(5.0, rawRating + delta));
+      data.korean_rating = parseFloat(calculatedKr.toFixed(1));
+      data.isDOMParsed = true;
+
+      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal} -> 보정 점수: ${data.korean_rating})`);
+      return true;
+    }
+    return false;
+  }
+
+  function clearRetryTimers() {
+    retryTimers.forEach(id => clearTimeout(id));
+    retryTimers = [];
+  }
+
+  function scheduleRatingRetry(data, isMock) {
+    clearRetryTimers();
+    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms 시점에 retry
+    const delays = [300, 700, 1200, 2000];
+    delays.forEach(delay => {
+      const timerId = setTimeout(() => {
+        if (!isEnabled || !shadowRoot) return;
+        const currentDOMRating = extractRatingFromDOM();
+        if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
+          applyDOMRating(data);
+          renderSidebar(data, isMock);
+        }
+      }, delay);
+      retryTimers.push(timerId);
+    });
   }
 
   /**
@@ -428,9 +520,11 @@
    * 사이드바 패널 제거 및 상태 초기화
    */
   function clearSidebar() {
+    clearRetryTimers();
     lastProcessedKey = null;
     currentGMapId = null;
     currentPlaceName = null;
+    currentAnalysisData = null;
     if (shadowRoot) {
       const rootEl = shadowRoot.querySelector('#gmap-decoder-root');
       if (rootEl) {
@@ -469,7 +563,15 @@
       return;
     }
 
-    if (!forceRefresh && processKey === lastProcessedKey) return;
+    // 이미 처리된 장소인 경우에도, DOM 평점이 뒤늦게 표시되었는지 검사하여 동적 반영
+    if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
+      const domRating = extractRatingFromDOM();
+      if (domRating !== null && currentAnalysisData.local_rating !== domRating) {
+        applyDOMRating(currentAnalysisData);
+        renderSidebar(currentAnalysisData, currentIsMock);
+      }
+      return;
+    }
 
     lastProcessedKey = processKey;
     currentGMapId = gmapId;
@@ -478,7 +580,16 @@
     console.log(`[GMap Review Decoder] 유효한 장소 감지됨 - gmap_id: ${gmapId || '없음(Fallback)'}, place_name: ${placeName || '없음'}`);
 
     const { data, isMock } = await fetchCulturalAnalysis(gmapId, placeName);
-    renderSidebar(data, isMock);
+    currentAnalysisData = data;
+    currentIsMock = isMock;
+
+    // DOM에서 실제 현지 평점 파싱 시도 및 반영
+    applyDOMRating(currentAnalysisData);
+
+    renderSidebar(currentAnalysisData, currentIsMock);
+
+    // DOM 평점이 즉시 파싱되지 않은 경우 비동기 Retry 로직 가동
+    scheduleRatingRetry(currentAnalysisData, currentIsMock);
   }
 
   /**

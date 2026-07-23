@@ -1,6 +1,18 @@
 # GMap Review Decoder (문화권/언어별 맞춤 리뷰 분석)
 
-구글 맵스(`https://www.google.com/maps/*`)에서 장소/식당이 선택되었을 때, URL 파라미터에서 **UCSD Google Local Reviews 데이터셋 규격 식별자(`gmap_id`)**를 정규식으로 자동 추출하고, 크롬 화면 우측에 **한국인 맞춤 보정 리뷰 분석 패널(Shadow DOM)**을 렌더링하는 크롬 확장프로그램 프로젝트입니다.
+구글 맵스(`https://www.google.com/maps/*`)에서 장소/식당이 선택되었을 때, URL 파라미터에서 **UCSD Google Local Reviews 데이터셋 규격 식별자(`gmap_id`)**를 정규식으로 자동 추출하고, 구글 맵스 DOM에서 **실제 현지 구글 평점(예: 4.7)**을 실시간 파싱하여 크롬 화면 우측에 **한국인 맞춤 보정 리뷰 분석 패널(Shadow DOM)**을 렌더링하는 크롬 확장프로그램 프로젝트입니다.
+
+---
+
+## 🌟 주요 기능
+
+1. **gmap_id & DOM 장소 파싱**: URL 정규식 패턴(`!1s0x...`) 및 DOM 헤더 탐색으로 장소 식별
+2. **실제 구글 맵스 DOM 평점 실시간 파싱**: 상세 패널의 실제 별점(예: `4.7`)을 DOM에서 탐색 (`div.F72Y3c`, `span[aria-hidden="true"]`, `aria-label`)
+3. **동적 문화권 평점 보정 계산**:
+   $$\text{한국인 보정 평점} = \text{실제 DOM 평점} + \Delta (\text{문화권 보정 차이값})$$
+   - 사전 분석 데이터 또는 오프라인 엔진의 문화 차이값($\Delta$)을 실제 구글 평점에 즉시 반영
+4. **SPA 비동기 로딩 대응 (Retry & Observer)**: 상세 패널 렌더링 지연 시에도 비동기 Retry 타이머 및 DOM Observer를 통해 우측 사이드바 자동 업데이트
+5. **격리된 글래스모피즘 Shadow DOM UI**: 구글 맵스 기존 CSS와의 스타일 오염을 100% 차단한 독립 UI
 
 ---
 
@@ -10,7 +22,7 @@
 | :--- | :--- | :---: |
 | 🐍 **BACKEND_SETUP.md** | 백엔드 파이썬 가상환경(`.venv`) 설정, 패키지 설치, PowerShell 권한 & 실행 가이드 | [바로가기](BACKEND_SETUP.md) |
 | 📊 **DATA_SPEC.md** | 동적 다중 JSON 스캐너 스키마, `gmap_id` 규격, `.gitignore` 데이터 관리 가이드 | [바로가기](DATA_SPEC.md) |
-| 🛠️ **TROUBLESHOOTING.md** | 개발 중 발생한 문제 해결 이력 (PowerShell 권한, SPA URL 감지, Manifest V3 규격 등) | [바로가기](TROUBLESHOOTING.md) |
+| 🛠️ **TROUBLESHOOTING.md** | 개발 중 발생한 문제 해결 이력 (DOM 평점 파싱, SPA URL 감지, Manifest V3 규격 등) | [바로가기](TROUBLESHOOTING.md) |
 | 📦 **sample_places.json** | 최상위 `data/` 폴더의 UCSD 규격 단일 샘플 데이터셋 (CAVA, 선농단, 북창동순두부, 피터루거) | [바로가기](data/sample_places.json) |
 
 ---
