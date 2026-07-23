@@ -243,6 +243,12 @@
   color: #4ade80;
 }
 
+.delta-none {
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(156, 163, 175, 0.3);
+}
+
 /* Rationale Box */
 .rationale-box {
   background: rgba(255, 255, 255, 0.03);
