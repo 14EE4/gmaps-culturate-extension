@@ -43,6 +43,13 @@
       "literal": "\"Pita chips and Crazy Feta are top tier\"",
       "meaning": "드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천."
     }
+  ],
+  "native_korean_reviews": [
+    {
+      "author": "Kyungmo Jae",
+      "rating": 5.0,
+      "text": "USC 빌리지안에 있는 카바에요! 식사시간 때 가면 사람들 많아서 줄서야하는데 모바일 오더도 가능해요!"
+    }
   ]
 }
 ```
