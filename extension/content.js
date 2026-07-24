@@ -167,6 +167,29 @@
   /**
    * DOM에서 장소 이름 추출 (스폰서/광고 라벨 예외 처리)
    */
+  /**
+   * document.title에서 장소 이름 추출 (Fallback)
+   */
+  function extractPlaceNameFromTitle() {
+    const rawTitle = document.title || '';
+    if (!rawTitle) return null;
+
+    let clean = rawTitle.replace(/\s*-\s*(Google Maps|구글 지도).*$/i, '').trim();
+    if (!clean || clean === 'Google Maps' || clean === '구글 지도') return null;
+
+    const parts = clean.split(/\s+-\s+/);
+    if (parts.length > 0 && parts[0].trim()) {
+      const candidate = parts[0].trim();
+      if (candidate && candidate !== 'Google Maps' && candidate !== '구글 지도' && candidate !== 'Reviews' && candidate !== '리뷰') {
+        return candidate;
+      }
+    }
+    return clean;
+  }
+
+  /**
+   * DOM에서 장소 이름 추출 (스폰서/광고 라벨 및 리뷰 탭 헤더 예외 처리)
+   */
   function extractPlaceNameFromDOM() {
     // 1. h1 셀렉터 탐색 (h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1)
     const h1Elements = Array.from(document.querySelectorAll('h1.DU314e, h1.fontTitleLarge, h1.DUwfxb, [role="main"] h1, h1'));
@@ -180,33 +203,62 @@
         .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
         .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
         .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/^리뷰\s*-\s*/gi, '')
+        .replace(/^Reviews\s*(?:for)?\s*/gi, '')
         .replace(/\n+/g, ' ')
         .trim();
 
-      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도' && cleanName.length > 1) {
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도' && cleanName !== 'Reviews' && cleanName !== '리뷰' && cleanName.length > 1) {
         return cleanName;
       }
     }
 
     // 2. Fallback 클래스 탐색
-    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, .DU314e');
+    const titleEl = document.querySelector('.DUwfxb, .fontHeadlineLarge, .DU314e, .hfN2eb');
     if (titleEl) {
       let cleanName = (titleEl.innerText || titleEl.textContent || '')
         .replace(/^(스폰서|Sponsor|Ad|광고)\s*/gi, '')
         .replace(/\n(스폰서|Sponsor|Ad|광고)/gi, '')
         .replace(/(스폰서|Sponsor|Ad|광고)\s*/gi, '')
+        .replace(/^리뷰\s*-\s*/gi, '')
+        .replace(/^Reviews\s*(?:for)?\s*/gi, '')
         .replace(/\n+/g, ' ')
         .trim();
-      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도') {
+      if (cleanName && cleanName !== 'Google Maps' && cleanName !== '구글 지도' && cleanName !== 'Reviews' && cleanName !== '리뷰') {
         return cleanName;
       }
+    }
+
+    // 3. Fallback to document.title
+    return extractPlaceNameFromTitle();
+  }
+
+  /**
+   * 다국어 aria-label에서 별점 점수(1.0~5.0) 추출
+   * 예: "4 stars", "4.0 out of 5 stars", "Rated 4 out of 5", "별표 5개 중 4개", "4/5", "4점", "4개"
+   */
+  function parseRatingFromAriaLabel(ariaLabel) {
+    if (!ariaLabel) return null;
+
+    // 한국어 패턴: "별표 5개 중 4개" -> "중 4개"
+    const krJungMatch = ariaLabel.match(/중\s*(\d(\.\d)?)/);
+    if (krJungMatch) {
+      const val = parseFloat(krJungMatch[1]);
+      if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
+    }
+
+    // 다국어 패턴 (영어/한국어 등): "4 stars", "4.0 out of 5 stars", "Rated 4 out of 5", "4/5", "4개", "4점"
+    const match = ariaLabel.match(/(\d(\.\d)?)\s*(stars|out of|\/|개|점)/i) || ariaLabel.match(/(\d(\.\d)?)/);
+    if (match && match[1]) {
+      const val = parseFloat(match[1]);
+      if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
     }
 
     return null;
   }
 
   /**
-   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱
+   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱 (다국어 지원)
    */
   function extractRatingFromDOM() {
     try {
@@ -221,15 +273,12 @@
         if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
       }
 
-      // 1-2. aria-label 기반 평점 추출 (예: "4.7 별표", "4.7 stars", "4.7 out of 5 stars")
-      const ariaEl = root.querySelector('[aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of 5"]');
-      if (ariaEl) {
+      // 1-2. aria-label 기반 평점 추출 (다국어 지원)
+      const ariaElements = Array.from(root.querySelectorAll('[aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of"], [aria-label*="Rated"]'));
+      for (const ariaEl of ariaElements) {
         const label = ariaEl.getAttribute('aria-label') || '';
-        const match = label.match(/([1-5]\.\d)/);
-        if (match) {
-          const val = parseFloat(match[1]);
-          if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
-        }
+        const val = parseRatingFromAriaLabel(label);
+        if (val !== null) return val;
       }
 
       // 1-3. span[aria-hidden="true"] 중 소수점 평점 형태(/^[1-5]\.\d$/) 검색
@@ -256,7 +305,7 @@
     const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
     if (!fullText) return false;
 
-    // Google 자동 번역 감지 키워드 (외국어 자동 번역본 제외)
+    // Google 자동 번역 감지 키워드 (한국어 및 영어 UI 자동 번역본 제외)
     const translationKeywords = [
       'Google 제공 번역',
       'Google 제공',
@@ -265,13 +314,17 @@
       'Google에서 번역한 내용',
       'Google 번역됨',
       'Translated by Google',
+      '(Translated by Google)',
       'Translated with Google',
+      'Rate and review',
+      'See original',
       '원본 보기',
       'Original'
     ];
 
+    const lowerText = fullText.toLowerCase();
     for (const keyword of translationKeywords) {
-      if (fullText.includes(keyword)) {
+      if (lowerText.includes(keyword.toLowerCase())) {
         return false;
       }
     }
@@ -292,8 +345,8 @@
       const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
       const root = mainPane || document;
 
-      // 구글 맵스 최상위 리뷰 카드 컨테이너 선택자 (하위 중복 선택자 제거)
-      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id]'));
+      // 구글 맵스 개요 및 리뷰 탭 리뷰 카드 컨테이너 선택자 (다국어/다양한 구조 대응)
+      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, [role="article"]'));
 
       reviewCards.forEach(card => {
         if (!isNativeKoreanReview(card)) return;
@@ -305,34 +358,32 @@
           author = authorEl.textContent.trim();
         }
 
-        // 별점 점수 추출 (aria-label="별표 5개 중 4개" 또는 aria-label="4 stars" 등)
+        // 별점 점수 추출 (다국어 aria-label 파싱)
         let rating = null;
-        const ratingEl = card.querySelector('span.kvMYJc[aria-label], span[role="img"][aria-label], [aria-label*="별표"], [aria-label*="star"]');
+        const ratingEl = card.querySelector('span.kvMYJc[aria-label], span[role="img"][aria-label], [aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of"], [aria-label*="Rated"]');
         if (ratingEl) {
           const ariaText = ratingEl.getAttribute('aria-label') || '';
-          const match = ariaText.match(/([1-5])(?:개|\.0|\s*star|\/5)/i) || ariaText.match(/([1-5]\.\d)/) || ariaText.match(/([1-5])/);
-          if (match && match[1]) {
-            rating = parseFloat(match[1]);
-          }
+          rating = parseRatingFromAriaLabel(ariaText);
         }
 
         // 원본 DOM 텍스트 보존
         const rawText = (card.innerText || card.textContent || '').trim();
 
-        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 작성자/프로필/날짜 제거 -> 3) UI 버튼 & 설문 키워드 절단(Cut-off) -> 4) 노이즈 세탁
+        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 작성자 제거 -> 3) 메타데이터/날짜 제거 -> 4) UI 버튼 절단(Cut-off) -> 5) 공백 정돈
         let text = rawText.replace(/\u00A0/g, ' ');
 
         if (author && author !== '익명') {
           text = text.replace(author, '');
         }
 
-        // 1. 프로필 메타데이터 및 상단 날짜 제거
+        // 1. 프로필 메타데이터 및 상단 날짜 제거 (한국어 & 영어 UI 지원)
         text = text
-          .replace(/지역 가이드\s*·\s*리뷰\s*[\d,]+개(?:\s*·\s*사진\s*[\d,]+장)?/gi, '')
-          .replace(/^[\s\S]*?(?:수정일:\s*)?\d+\s*(?:년|개월|주|일|시간)\s*전\s*/gi, '');
+          .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
+          .replace(/[\d,]+\s*(?:개|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '')
+          .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '');
 
-        // 2. UI 버튼("자세히 보기", "좋아요", "공유") 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off)
-        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적)/i;
+        // 2. UI 버튼 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off) - 한국어 및 영어 지원
+        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|More|Less|See translation|See original|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
         if (uiCutoffRegex.test(text)) {
           text = text.split(uiCutoffRegex)[0];
         }
@@ -346,12 +397,14 @@
           .replace(/\s+/g, ' ')
           .trim();
 
+        if (!text || !/[\uAC00-\uD7A3]/.test(text)) return;
+
         // 디버깅용 RAW & CLEANED 콘솔 로그 출력
         console.log(`[KR Reviews RAW] 👤 ${author} (★ ${rating || '미기재'})`);
         console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
         console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
-        // 중복 방지 키 생성 (author + text 20자)
+        // 중복 방지 키 생성 (author + text 30자)
         const uniqueKey = `${author}_${text.substring(0, 30)}`;
         if (!seenKeys.has(uniqueKey)) {
           seenKeys.add(uniqueKey);
@@ -430,16 +483,26 @@
 
   function scheduleRatingRetry(data, isMock) {
     clearRetryTimers();
-    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms 시점에 retry
-    const delays = [300, 700, 1200, 2000];
+    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms, 3500ms 시점에 retry
+    const delays = [300, 700, 1200, 2000, 3500];
     delays.forEach(delay => {
       const timerId = setTimeout(() => {
         if (!isEnabled || !shadowRoot) return;
         const currentDOMRating = extractRatingFromDOM();
-        extractNativeKoreanReviewsFromDOM();
         if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
           applyDOMRating(data);
           renderSidebar(data, isMock);
+        }
+        extractNativeKoreanReviewsFromDOM();
+
+        // 장소명이 뒤늦게 렌더링된 경우 업데이트
+        if (data.place_name && data.place_name.startsWith('장소 (')) {
+          const freshName = extractPlaceNameFromDOM();
+          if (freshName && !freshName.startsWith('장소 (')) {
+            data.place_name = freshName;
+            currentPlaceName = freshName;
+            renderSidebar(data, isMock);
+          }
         }
       }, delay);
       retryTimers.push(timerId);
@@ -808,12 +871,19 @@
       return;
     }
 
-    // 이미 처리된 장소인 경우에도, DOM 평점이 뒤늦게 표시되었는지 검사하여 동적 반영
+    // 이미 처리된 장소인 경우에도, DOM 평점 및 한국어 리뷰가 뒤늦게 표시되었는지 동적 파싱
     if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
-      const domRating = extractRatingFromDOM();
-      if (domRating !== null && currentAnalysisData.local_rating !== domRating) {
-        applyDOMRating(currentAnalysisData);
-        renderSidebar(currentAnalysisData, currentIsMock);
+      applyDOMRating(currentAnalysisData);
+      extractNativeKoreanReviewsFromDOM();
+
+      // 장소 이름이 처음에 '장소 (0x...)' Fallback으로 생성되었다면 새로 감지된 장소명으로 업데이트
+      if (currentAnalysisData.place_name && currentAnalysisData.place_name.startsWith('장소 (')) {
+        const freshPlaceName = extractPlaceNameFromDOM();
+        if (freshPlaceName && !freshPlaceName.startsWith('장소 (')) {
+          currentAnalysisData.place_name = freshPlaceName;
+          currentPlaceName = freshPlaceName;
+          renderSidebar(currentAnalysisData, currentIsMock);
+        }
       }
       return;
     }
