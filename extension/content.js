@@ -535,6 +535,48 @@
   }
 
   /**
+   * 구글 맵스 좌측 패널의 리뷰 탭 클릭 및 자동 스크롤 다운을 실행하여 더 많은 리뷰 자동 로드
+   */
+  function autoFetchKoreanReviews() {
+    try {
+      console.log('[GMap Review Decoder] 📥 리뷰 자동 불러오기(Auto Fetch) 실행 중...');
+
+      // 1. 구글 맵스 개요(Overview) 탭에서 리뷰(Reviews) 탭으로 자동 전환 시도
+      const tabs = Array.from(document.querySelectorAll('button, div[role="tab"]'));
+      const reviewsTab = tabs.find(el => {
+        const text = (el.textContent || el.getAttribute('aria-label') || '').toLowerCase();
+        return (text.includes('reviews') || text.includes('리뷰')) && !text.includes('decoder');
+      });
+
+      if (reviewsTab) {
+        reviewsTab.click();
+        console.log('[GMap Review Decoder] 리뷰 탭 자동 클릭 완료');
+      }
+
+      // 2. 구글 맵스 좌측 메인 패널/스크롤 패널 자동 스크롤 다운
+      const scrollPanes = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"]'));
+      scrollPanes.forEach(pane => {
+        if (pane && pane.scrollHeight > pane.clientHeight) {
+          pane.scrollTop = pane.scrollTop + 800;
+        }
+      });
+
+      // 3. 스크롤 후 실시간 리뷰 탐지 재파싱
+      setTimeout(() => {
+        const scrollPanes2 = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"]'));
+        scrollPanes2.forEach(pane => {
+          if (pane && pane.scrollHeight > pane.clientHeight) {
+            pane.scrollTop = pane.scrollTop + 1200;
+          }
+        });
+        extractNativeKoreanReviewsFromDOM();
+      }, 500);
+    } catch (err) {
+      console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
+    }
+  }
+
+  /**
    * 2. 백엔드 API 또는 Dynamic Mock Data 통신
    */
   async function fetchCulturalAnalysis(gmapId, placeName) {
@@ -670,52 +712,52 @@
 
         <!-- Body -->
         <div class="decoder-body">
-          <!-- Place Title Card -->
+          <!-- Place Title & ID -->
           <div class="place-card">
-            <div class="place-name">${escapeHTML(data.place_name)}</div>
+            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
             <div class="place-meta">
-              <span>📍 위치 선택 완료</span>
+              <span>📍 Google Maps Place</span>
             </div>
-            ${data.gmap_id ? `<div class="gmap-id-tag" title="UCSD Dataset Key">ID: ${data.gmap_id}</div>` : ''}
+            ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
           </div>
 
-          <!-- Rating Comparison Grid -->
+          <!-- Dual Rating System Badges -->
           <div class="ratings-container">
+            <!-- Local Rating -->
             <div class="rating-box">
-              <div class="rating-label">🌐 현지 구글 평점</div>
+              <div class="rating-label">🌐 현지 전체 평점</div>
               <div class="rating-score">
-                <span class="stars">★</span> ${data.local_rating} <span class="max">/ 5.0</span>
+                ${data.local_rating.toFixed(1)}
+                <span class="stars">★</span>
+                <span class="max">/5</span>
               </div>
+              <div class="rating-delta delta-none">구글 기본 평점</div>
             </div>
 
+            <!-- Korean Culture Rating -->
             <div class="rating-box korean-box">
-              <div class="rating-label">🇰🇷 한국인 보정 평점</div>
-              ${hasKoreanData ? `
-                <div class="rating-score">
-                  <span class="stars">★</span> ${data.korean_rating} <span class="max">/ 5.0</span>
-                </div>
-                <div class="rating-delta ${deltaClass}">${deltaSign} 보정됨</div>
-              ` : `
-                <div class="rating-score">
-                  <span style="font-size: 15px; color: #9ca3af; font-weight: 600;">데이터 없음</span>
-                </div>
-                <div class="rating-delta delta-none">리뷰 미감지</div>
-              `}
+              <div class="rating-label">🇰🇷 한국인 체감 평점</div>
+              <div class="rating-score">
+                ${hasKoreanData ? data.korean_rating.toFixed(1) : '미집계'}
+                <span class="stars">★</span>
+                ${hasKoreanData ? '<span class="max">/5</span>' : ''}
+              </div>
+              <div class="rating-delta ${deltaClass}">
+                ${hasKoreanData ? `격차 ${deltaSign}` : '데이터 수집 중'}
+              </div>
             </div>
           </div>
 
-          <!-- Real Native Korean Reviews Section (평점 박스 바로 아래 배치) -->
-          <div>
+          <!-- Native Korean Reviews Section -->
+          <div class="native-reviews-container">
             <div class="section-title">
-              <div>
-                <span>🇰🇷 실시간 감지된 한국인 원문 리뷰</span>
-                <span style="font-size: 11px; color: #a5b4fc; font-weight: normal; margin-left: 4px;">(${(data.native_korean_reviews || []).length}건)</span>
+              <span>💬 한국인 원문 리뷰 (${(data.native_korean_reviews || []).length}건)</span>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button id="btn-fetch-more" class="btn-fetch-more" title="구글 맵스 패널을 스크롤하여 더 많은 한국인 리뷰를 자동으로 불러옵니다.">📥 더 불러오기</button>
+                ${(data.native_korean_reviews || []).length > 3 ? 
+                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? '접기 ▲' : '전체보기 ▼'}</button>` : ''
+                }
               </div>
-              ${(data.native_korean_reviews || []).length > 3 ? `
-                <button class="btn-toggle-reviews" id="btn-toggle-reviews">
-                  ${showAllReviews ? '접기 ▲' : `전체 보기 (${(data.native_korean_reviews || []).length}개) ▼`}
-                </button>
-              ` : ''}
             </div>
             <div class="native-reviews-section">
               ${(data.native_korean_reviews || []).length > 0 ? 
@@ -729,7 +771,8 @@
                   </div>
                 `).join('') :
                 `<div class="native-review-empty">
-                   💬 구글 맵스 좌측 패널의 리뷰 탭에서 <strong>'More reviews'</strong>를 누르거나 아래로 스크롤해 보세요. 실시간 탐지된 한국인 원문 리뷰가 여기에 자동으로 반영됩니다.
+                   <div style="margin-bottom: 8px;">💬 현재 화면 상단 리뷰 중 한국어 원문이 없습니다. (영어 UI 우선정렬)</div>
+                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 'More reviews' 자동 클릭 &amp; 스크롤 실행</button>
                  </div>`
               }
             </div>
@@ -925,9 +968,16 @@
 
     // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
     applyDOMRating(currentAnalysisData);
-    extractNativeKoreanReviewsFromDOM();
+    const initialKrReviews = extractNativeKoreanReviewsFromDOM();
 
     renderSidebar(currentAnalysisData, currentIsMock);
+
+    // 한국어 원문 리뷰가 0건이면 리뷰 탭 전환 및 스크롤 자동 실행 (Auto Fetch)
+    if (!initialKrReviews || initialKrReviews.length === 0) {
+      setTimeout(() => {
+        autoFetchKoreanReviews();
+      }, 1200);
+    }
 
     // DOM 평점이 즉시 파싱되지 않은 경우 비동기 Retry 로직 가동
     scheduleRatingRetry(currentAnalysisData, currentIsMock);
