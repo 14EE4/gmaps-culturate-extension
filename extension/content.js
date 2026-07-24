@@ -535,24 +535,20 @@
   }
 
   /**
-   * 리뷰 카드를 기준으로 실제 overflow-y 스크롤이 발동하는 부모 DOM 컨테이너를 탐색
+   * 구글 지도 네트워크 응답 후 DOM에 리뷰 카드(div.jftiEf 등)가 실제 로드될 때까지 100ms 간격으로 비동기 대기
    */
-  function getReviewScrollParent() {
-    const card = document.querySelector('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, [role="article"]');
-    if (card) {
-      let curr = card.parentElement;
-      while (curr && curr !== document.body) {
-        const style = window.getComputedStyle(curr);
-        const overflowY = style.overflowY;
-        if ((overflowY === 'auto' || overflowY === 'scroll') || (curr.scrollHeight > curr.clientHeight && curr.clientHeight > 0)) {
-          return curr;
-        }
-        curr = curr.parentElement;
+  async function waitForReviewCards(timeoutMs = 2500) {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+      const cards = document.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, [role="article"]');
+      if (cards.length > 0) {
+        console.log(`[GMap Review Decoder] 리뷰 카드 DOM 로드 완료 (${cards.length}개 발견, 소요시간: ${Date.now() - startTime}ms)`);
+        return true;
       }
+      await new Promise(res => setTimeout(res, 100));
     }
-
-    // Fallback: 구글 맵스 주요 스크롤 대상 검색
-    return document.querySelector('div.m6QEdf[role="region"], div.m6QEdf[tabindex="-1"], div.m6QEdf.aria-container, #QA0Sfe');
+    console.log('[GMap Review Decoder] 리뷰 카드 DOM 로드 타임아웃');
+    return false;
   }
 
   /**
@@ -578,18 +574,18 @@
       if (reviewsTab) {
         reviewsTab.click();
         reviewsTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-        console.log('[GMap Review Decoder] 리뷰 탭 클릭 완료. 탭 DOM 렌더링 대기 중...');
+        console.log('[GMap Review Decoder] 리뷰 탭 클릭 완료. 구글 지도 AJAX 응답 및 DOM 렌더링 대기 중...');
       }
 
-      // 2. 구글 지도가 리뷰 패널 DOM을 완전히 재구성할 때까지 400ms 비동기 대기
-      await new Promise(resolve => setTimeout(resolve, 400));
+      // 2. 구글 지도 네트워크 통신 및 리뷰 카드 DOM 출현 대기 (최대 2.5초 폴링)
+      await waitForReviewCards(2500);
 
-      // 3. 실제 스크롤 부모 컨테이너 탐지 및 스크롤 강제
+      // 3. 리뷰 카드가 DOM에 생성된 후, 실제 스크롤 부모 컨테이너 탐지 및 스크롤 다운 실행
       const scrollParent = getReviewScrollParent();
       if (scrollParent) {
         scrollParent.scrollTop = scrollParent.scrollHeight;
         scrollParent.dispatchEvent(new Event('scroll', { bubbles: true }));
-        scrollParent.dispatchEvent(new WheelEvent('wheel', { deltaY: 2000, bubbles: true }));
+        scrollParent.dispatchEvent(new WheelEvent('wheel', { deltaY: 3000, bubbles: true }));
         console.log('[GMap Review Decoder] 1차 스크롤 다운 완료 (target:', scrollParent.className, ')');
       }
 
