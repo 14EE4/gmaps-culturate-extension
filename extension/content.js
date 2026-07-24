@@ -535,44 +535,59 @@
   }
 
   /**
-   * 구글 맵스 좌측 패널의 리뷰 탭 클릭 및 자동 스크롤 다운을 실행하여 더 많은 리뷰 자동 로드
+   * 사용자가 '리뷰 더 불러오기' 버튼을 클릭했을 때만 작동하는 수동 수집 및 스크롤 함수
    */
-  function autoFetchKoreanReviews() {
+  function autoFetchKoreanReviews(btnElement = null) {
     try {
-      console.log('[GMap Review Decoder] 📥 리뷰 자동 불러오기(Auto Fetch) 실행 중...');
+      console.log('[GMap Review Decoder] 📥 수동 리뷰 더보기(Fetch More) 실행...');
 
-      // 1. 구글 맵스 개요(Overview) 탭에서 리뷰(Reviews) 탭으로 자동 전환 시도
-      const tabs = Array.from(document.querySelectorAll('button, div[role="tab"]'));
+      if (btnElement) {
+        btnElement.disabled = true;
+        btnElement.dataset.originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '⏳ 수집 중...';
+      }
+
+      // 1. 구글 맵스 개요(Overview) 탭에서 리뷰(Reviews) 탭으로 전환 시도
+      const tabs = Array.from(document.querySelectorAll('button[role="tab"], div[role="tab"], button[data-tab-index], button'));
       const reviewsTab = tabs.find(el => {
         const text = (el.textContent || el.getAttribute('aria-label') || '').toLowerCase();
-        return (text.includes('reviews') || text.includes('리뷰')) && !text.includes('decoder');
+        return (text.includes('reviews') || text.includes('리뷰')) && !text.includes('decoder') && !text.includes('수집');
       });
 
       if (reviewsTab) {
         reviewsTab.click();
-        console.log('[GMap Review Decoder] 리뷰 탭 자동 클릭 완료');
+        reviewsTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        console.log('[GMap Review Decoder] 리뷰 탭 클릭 이벤트 전송 완료');
       }
 
       // 2. 구글 맵스 좌측 메인 패널/스크롤 패널 자동 스크롤 다운
-      const scrollPanes = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"]'));
+      const scrollPanes = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"], div.section-layout'));
       scrollPanes.forEach(pane => {
-        if (pane && pane.scrollHeight > pane.clientHeight) {
-          pane.scrollTop = pane.scrollTop + 800;
+        if (pane && (pane.scrollHeight > pane.clientHeight || pane.offsetHeight > 0)) {
+          pane.scrollTop = pane.scrollTop + 1000;
         }
       });
 
-      // 3. 스크롤 후 실시간 리뷰 탐지 재파싱
+      // 3. 0.7초 후 2차 스크롤 및 DOM 리뷰 재파싱
       setTimeout(() => {
-        const scrollPanes2 = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"]'));
-        scrollPanes2.forEach(pane => {
-          if (pane && pane.scrollHeight > pane.clientHeight) {
-            pane.scrollTop = pane.scrollTop + 1200;
-          }
+        scrollPanes.forEach(pane => {
+          if (pane) pane.scrollTop = pane.scrollTop + 1500;
         });
-        extractNativeKoreanReviewsFromDOM();
-      }, 500);
+
+        const extracted = extractNativeKoreanReviewsFromDOM();
+        console.log(`[GMap Review Decoder] 수동 수집 완료: 총 ${extracted.length}건 수집됨`);
+
+        if (btnElement) {
+          btnElement.disabled = false;
+          btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
+        }
+      }, 700);
     } catch (err) {
       console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
+      if (btnElement) {
+        btnElement.disabled = false;
+        btnElement.innerHTML = '📥 더 불러오기';
+      }
     }
   }
 
@@ -845,6 +860,20 @@
         renderSidebar(currentAnalysisData, currentIsMock);
       });
     }
+
+    const fetchMoreBtn = rootEl.querySelector('#btn-fetch-more');
+    if (fetchMoreBtn) {
+      fetchMoreBtn.addEventListener('click', (e) => {
+        autoFetchKoreanReviews(e.currentTarget);
+      });
+    }
+
+    const fetchMoreEmptyBtn = rootEl.querySelector('#btn-fetch-more-empty');
+    if (fetchMoreEmptyBtn) {
+      fetchMoreEmptyBtn.addEventListener('click', (e) => {
+        autoFetchKoreanReviews(e.currentTarget);
+      });
+    }
   }
 
   function renderMetricBar(name, metric) {
@@ -968,16 +997,9 @@
 
     // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
     applyDOMRating(currentAnalysisData);
-    const initialKrReviews = extractNativeKoreanReviewsFromDOM();
+    extractNativeKoreanReviewsFromDOM();
 
     renderSidebar(currentAnalysisData, currentIsMock);
-
-    // 한국어 원문 리뷰가 0건이면 리뷰 탭 전환 및 스크롤 자동 실행 (Auto Fetch)
-    if (!initialKrReviews || initialKrReviews.length === 0) {
-      setTimeout(() => {
-        autoFetchKoreanReviews();
-      }, 1200);
-    }
 
     // DOM 평점이 즉시 파싱되지 않은 경우 비동기 Retry 로직 가동
     scheduleRatingRetry(currentAnalysisData, currentIsMock);
