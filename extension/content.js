@@ -309,22 +309,20 @@
     const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
     if (!fullText) return false;
 
-    // 외국어 리뷰가 한국어로 자동 번역된 경우 제외 (한국어 UI 기계번역 문구)
-    const koreanTranslationKeywords = [
-      'Google 제공 번역',
-      'Google 제공',
-      'Google 번역',
-      'Google에서 번역함',
+    // 외국어 리뷰가 한국어로 자동 번역된 명확한 뱃지/문구만 제외
+    const machineTranslationBadges = [
       'Google에서 번역한 내용',
+      'Google에서 번역함',
       'Google 번역됨',
-      '원본 보기'
+      '에서 번역됨',
+      '자동 번역됨'
     ];
 
     const lowerText = fullText.toLowerCase();
-    for (const keyword of koreanTranslationKeywords) {
+    for (const keyword of machineTranslationBadges) {
       if (lowerText.includes(keyword.toLowerCase())) {
         if (logReason) {
-          console.log(`  [KR Review Filter ❌] 제외됨 (이유: 한국어 기계번역 문구 '${keyword}' 포함)`);
+          console.log(`  [KR Review Filter ❌] 제외됨 (이유: 한국어 기계번역 뱃지 '${keyword}' 포함)`);
           console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
         }
         return false;
@@ -405,8 +403,8 @@
           .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
           .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-        // 2. UI 버튼 및 구글 폼 설문 키워드 절단 (Cut-off) - 한국어 및 영어 지원
-        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|More|Less|See translation|See original|Translated by Google|Rate and review|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
+        // 2. UI 버튼, 번역 뱃지 및 구글 폼 설문 키워드 절단 (Cut-off) - 한국어 및 영어 지원
+        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
         if (uiCutoffRegex.test(text)) {
           text = text.split(uiCutoffRegex)[0];
         }
