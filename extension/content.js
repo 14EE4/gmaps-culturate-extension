@@ -258,7 +258,7 @@
   }
 
   /**
-   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱 (다국어 지원)
+   * DOM에서 실제 구글 맵스 현지 평점(예: "4.7") 파싱 (다국어 지원 & fontDisplayLarge 대응)
    */
   function extractRatingFromDOM() {
     try {
@@ -266,24 +266,28 @@
       const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
       const root = mainPane || document;
 
-      // 1-1. 전용 클래스 검사 (div.F72Y3c, span.ceW3ed 등)
-      const knownClassEl = root.querySelector('div.F72Y3c, span.ceW3ed, div.fontBodyMedium span[aria-hidden="true"]');
-      if (knownClassEl) {
-        const val = parseFloat(knownClassEl.textContent.trim());
+      // 1-1. 최상위 장소 헤더/리뷰 요약 전용 클래스 검사 (fontDisplayLarge, div.F72Y3c, span.ceW3ed 등)
+      const primaryRatingEls = Array.from(root.querySelectorAll('div.fontDisplayLarge, span.fontDisplayLarge, .fontDisplayLarge, div.F72Y3c, span.ceW3ed'));
+      for (const el of primaryRatingEls) {
+        const val = parseFloat((el.textContent || '').trim());
         if (!isNaN(val) && val >= 1.0 && val <= 5.0) return val;
       }
 
-      // 1-2. aria-label 기반 평점 추출 (다국어 지원)
-      const ariaElements = Array.from(root.querySelectorAll('[aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of"], [aria-label*="Rated"]'));
+      // 1-2. 장소 헤더 컨테이너 내부의 aria-label 기반 평점 추출 (개별 리뷰 카드 내 별점 제외)
+      const ariaElements = Array.from(root.querySelectorAll('div.F72Y3c [aria-label], div.fontBodyMedium [aria-label], [aria-label*="별표"], [aria-label*="star"], [aria-label*="stars"], [aria-label*="out of"], [aria-label*="Rated"]'));
       for (const ariaEl of ariaElements) {
+        // 개별 리뷰 카드(div.jftiEf 등) 내부의 별점은 전체 장소 평점이 아니므로 건너뜀
+        if (ariaEl.closest && ariaEl.closest('div.jftiEf, div[data-review-id], [role="article"]')) continue;
+
         const label = ariaEl.getAttribute('aria-label') || '';
         const val = parseRatingFromAriaLabel(label);
         if (val !== null) return val;
       }
 
-      // 1-3. span[aria-hidden="true"] 중 소수점 평점 형태(/^[1-5]\.\d$/) 검색
+      // 1-3. span[aria-hidden="true"] 중 소수점 평점 형태(/^[1-5]\.\d$/) 검색 (개별 리뷰 카드 제외)
       const spanElements = Array.from(root.querySelectorAll('span[aria-hidden="true"], span'));
       for (const span of spanElements) {
+        if (span.closest && span.closest('div.jftiEf, div[data-review-id], [role="article"]')) continue;
         const text = span.textContent.trim();
         if (/^[1-5]\.\d$/.test(text)) {
           const val = parseFloat(text);
