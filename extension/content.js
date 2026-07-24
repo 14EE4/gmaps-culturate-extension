@@ -423,7 +423,19 @@
           return;
         }
 
-        console.log(`  👤 작성자: ${author} | 별점: ★ ${rating || '미기재'}`);
+        // 상대 작성일자 추출 (예: 7개월 전 / 7 months ago / 수정일: 2주 전)
+        let date = '';
+        const dateEl = card.querySelector('.r7bNeb, span.r7bNeb, [class*="date"], .xRvfT');
+        if (dateEl && dateEl.textContent.trim()) {
+          date = dateEl.textContent.trim();
+        } else {
+          const dateMatch = rawText.match(/(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)/i);
+          if (dateMatch) {
+            date = dateMatch[0].trim();
+          }
+        }
+
+        console.log(`  👤 작성자: ${author} ${date ? `(${date})` : ''} | 별점: ★ ${rating || '미기재'}`);
         console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
         console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
@@ -434,7 +446,8 @@
           reviews.push({
             author,
             rating,
-            text
+            text,
+            date
           });
         }
       });
@@ -532,6 +545,27 @@
       }, delay);
       retryTimers.push(timerId);
     });
+  }
+
+  /**
+   * 리뷰 카드를 기준으로 실제 overflow-y 스크롤이 발동하는 부모 DOM 컨테이너를 탐색
+   */
+  function getReviewScrollParent() {
+    const card = document.querySelector('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, [role="article"]');
+    if (card) {
+      let curr = card.parentElement;
+      while (curr && curr !== document.body) {
+        const style = window.getComputedStyle(curr);
+        const overflowY = style.overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') || (curr.scrollHeight > curr.clientHeight && curr.clientHeight > 0)) {
+          return curr;
+        }
+        curr = curr.parentElement;
+      }
+    }
+
+    // Fallback: 구글 맵스 주요 스크롤 대상 검색
+    return document.querySelector('div.m6QEdf[role="region"], div.m6QEdf[tabindex="-1"], div.m6QEdf.aria-container, #QA0Sfe');
   }
 
   /**
@@ -802,7 +836,7 @@
                 (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
                   <div class="native-review-card">
                     <div class="native-review-header">
-                      <span class="native-review-author">👤 ${escapeHTML(r.author)}</span>
+                      <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
                       ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
                     </div>
                     <div class="native-review-text">${escapeHTML(r.text)}</div>

@@ -419,6 +419,12 @@
   font-size: 12px;
 }
 
+.native-review-date {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
 .native-review-rating {
   color: #fbbf24;
   font-size: 11px;
