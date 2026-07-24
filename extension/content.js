@@ -535,9 +535,9 @@
   }
 
   /**
-   * 사용자가 '리뷰 더 불러오기' 버튼을 클릭했을 때만 작동하는 수동 수집 및 스크롤 함수
+   * 사용자가 '리뷰 더 불러오기' 버튼을 클릭했을 때만 작동하는 수동 수집 및 비동기 스크롤 함수
    */
-  function autoFetchKoreanReviews(btnElement = null) {
+  async function autoFetchKoreanReviews(btnElement = null) {
     try {
       console.log('[GMap Review Decoder] 📥 수동 리뷰 더보기(Fetch More) 실행...');
 
@@ -557,31 +557,38 @@
       if (reviewsTab) {
         reviewsTab.click();
         reviewsTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-        console.log('[GMap Review Decoder] 리뷰 탭 클릭 이벤트 전송 완료');
+        console.log('[GMap Review Decoder] 리뷰 탭 클릭 완료. 탭 DOM 렌더링 대기 중...');
       }
 
-      // 2. 구글 맵스 좌측 메인 패널/스크롤 패널 자동 스크롤 다운
-      const scrollPanes = Array.from(document.querySelectorAll('div.m6QEdf, #QA0Sfe, [role="main"], div.section-layout'));
+      // 2. 구글 지도가 리뷰 패널 DOM을 완전히 재구성할 때까지 400ms 비동기 대기
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      const getScrollPanes = () => {
+        return Array.from(document.querySelectorAll('div.m6QEdf[role="region"], div.m6QEdf[tabindex="-1"], div.m6QEdf, #QA0Sfe, [role="main"], div.section-layout'))
+          .filter(el => el && (el.scrollHeight > el.clientHeight || el.offsetHeight > 0));
+      };
+
+      let scrollPanes = getScrollPanes();
       scrollPanes.forEach(pane => {
-        if (pane && (pane.scrollHeight > pane.clientHeight || pane.offsetHeight > 0)) {
-          pane.scrollTop = pane.scrollTop + 1000;
-        }
+        pane.scrollTop = pane.scrollTop + 1500;
+      });
+      console.log('[GMap Review Decoder] 1차 스크롤 다운 완료');
+
+      // 3. 500ms 후 2차 스크롤 및 실시간 리뷰 추출
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      scrollPanes = getScrollPanes();
+      scrollPanes.forEach(pane => {
+        pane.scrollTop = pane.scrollTop + 2000;
       });
 
-      // 3. 0.7초 후 2차 스크롤 및 DOM 리뷰 재파싱
-      setTimeout(() => {
-        scrollPanes.forEach(pane => {
-          if (pane) pane.scrollTop = pane.scrollTop + 1500;
-        });
+      const extracted = extractNativeKoreanReviewsFromDOM();
+      console.log(`[GMap Review Decoder] 수동 수집 완료: 총 ${extracted.length}건 수집됨`);
 
-        const extracted = extractNativeKoreanReviewsFromDOM();
-        console.log(`[GMap Review Decoder] 수동 수집 완료: 총 ${extracted.length}건 수집됨`);
-
-        if (btnElement) {
-          btnElement.disabled = false;
-          btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
-        }
-      }, 700);
+      if (btnElement) {
+        btnElement.disabled = false;
+        btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
+      }
     } catch (err) {
       console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
       if (btnElement) {
