@@ -309,13 +309,21 @@
     const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
     if (!fullText) return false;
 
-    // 외국어 리뷰가 한국어로 자동 번역된 명확한 뱃지/문구만 제외
+    // 외국어 리뷰가 한국어로 자동 번역된 명확한 뱃지/문구 제외 (한국어 & 영어 UI 지원)
     const machineTranslationBadges = [
+      'Google 제공 번역',
+      'Google 제공',
       'Google에서 번역한 내용',
       'Google에서 번역함',
       'Google 번역됨',
+      'Google에서 번역',
+      'Google 번역',
       '에서 번역됨',
-      '자동 번역됨'
+      '자동 번역됨',
+      '원본 보기',
+      '원본(',
+      'Translated by Google',
+      'See original'
     ];
 
     const lowerText = fullText.toLowerCase();
