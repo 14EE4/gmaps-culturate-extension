@@ -301,9 +301,9 @@
   }
 
   /**
-   * 1. 리뷰 카드 DOM이 원문 한국어 리뷰인지 판별 (구글 번역 문구 제외 & 한글 유니코드 검사)
+   * 1. 리뷰 카드 DOM이 원문 한국어 리뷰인지 판별 (진단 로그 포함)
    */
-  function isNativeKoreanReview(reviewEl) {
+  function isNativeKoreanReview(reviewEl, logReason = false) {
     if (!reviewEl) return false;
 
     const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
@@ -323,16 +323,32 @@
     const lowerText = fullText.toLowerCase();
     for (const keyword of koreanTranslationKeywords) {
       if (lowerText.includes(keyword.toLowerCase())) {
+        if (logReason) {
+          console.log(`  [KR Review Filter ❌] 제외됨 (이유: 한국어 기계번역 문구 '${keyword}' 포함)`);
+          console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+        }
         return false;
       }
     }
 
-    // 한글 유니코드 범위(/[\uAC00-\uD7A3]/) 검사로 한국어 원문 포함 여부 판단
-    return /[\uAC00-\uD7A3]/.test(fullText);
+    const hasKoreanChar = /[\uAC00-\uD7A3]/.test(fullText);
+    if (!hasKoreanChar) {
+      if (logReason) {
+        console.log(`  [KR Review Filter ❌] 제외됨 (이유: 한글 유니코드 미포함 - 순수 외국어 리뷰)`);
+        console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+      }
+      return false;
+    }
+
+    if (logReason) {
+      console.log(`  [KR Review Filter ✅] 통과됨 (한국어 원문 리뷰 탐지 성공)`);
+    }
+
+    return true;
   }
 
   /**
-   * 2. DOM에서 순수 한국인 리뷰 카드 파싱 (작성자, 별점, 리뷰 본문)
+   * 2. DOM에서 순수 한국인 리뷰 카드 파싱 (상세 진단 로그 포함)
    * @returns {Array<{author: string, rating: number|null, text: string}>}
    */
   function extractNativeKoreanReviewsFromDOM() {
@@ -346,8 +362,17 @@
       // 구글 맵스 개요(Overview) 및 리뷰(Reviews) 탭의 모든 리뷰 카드 컨테이너 선택자 포괄
       const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, div.K7x0ed, div.hh25db, div.ffuGub, div.jANrZb, div.W3yE8c, [role="article"]'));
 
-      reviewCards.forEach(card => {
-        if (!isNativeKoreanReview(card)) return;
+      console.log(`[KR Reviews Diagnostics] DOM 내 리뷰 카드 후보 탐지: 총 ${reviewCards.length}개 발견`);
+
+      if (reviewCards.length === 0) {
+        console.log(`[KR Reviews Diagnostics] ⚠️ 현재 DOM에서 리뷰 카드 요소를 찾지 못함 (DOM 미렌더링 상태 또는 선택자 미매칭)`);
+      }
+
+      reviewCards.forEach((card, index) => {
+        console.log(`--------------------------------------------------`);
+        console.log(`[KR Review #${index + 1} 검사 중]`);
+
+        if (!isNativeKoreanReview(card, true)) return;
 
         // 작성자 닉네임 추출
         let author = '익명';
@@ -367,20 +392,20 @@
         // 원본 DOM 텍스트 보존
         const rawText = (card.innerText || card.textContent || '').trim();
 
-        // 텍스트 정화: 1) 특수 공백(\u00A0) 정규화 -> 2) 작성자 제거 -> 3) 메타데이터/날짜 제거 -> 4) UI 버튼 절단(Cut-off) -> 5) 공백 정돈
+        // 텍스트 정화
         let text = rawText.replace(/\u00A0/g, ' ');
 
         if (author && author !== '익명') {
           text = text.replace(author, '');
         }
 
-        // 1. 프로필 메타데이터 및 상단 날짜 제거 (한국어 & 영어 UI 지원)
+        // 1. 프로필 메타데이터 및 상단 작성일 제거 (한국어 & 영어 UI 지원)
         text = text
+          .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '')
           .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
-          .replace(/[\d,]+\s*(?:개|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '')
-          .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '');
+          .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-        // 2. UI 버튼 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off) - 한국어 및 영어 지원
+        // 2. UI 버튼 및 구글 폼 설문 키워드 절단 (Cut-off) - 한국어 및 영어 지원
         const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|More|Less|See translation|See original|Translated by Google|Rate and review|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
         if (uiCutoffRegex.test(text)) {
           text = text.split(uiCutoffRegex)[0];
@@ -395,10 +420,12 @@
           .replace(/\s+/g, ' ')
           .trim();
 
-        if (!text || !/[\uAC00-\uD7A3]/.test(text)) return;
+        if (!text || !/[\uAC00-\uD7A3]/.test(text)) {
+          console.log(`  [KR Review Filter ❌] 제외됨 (이유: 세탁 후 한글 본문 소실)`);
+          return;
+        }
 
-        // 디버깅용 RAW & CLEANED 콘솔 로그 출력
-        console.log(`[KR Reviews RAW] 👤 ${author} (★ ${rating || '미기재'})`);
+        console.log(`  👤 작성자: ${author} | 별점: ★ ${rating || '미기재'}`);
         console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
         console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
@@ -414,8 +441,10 @@
         }
       });
 
+      console.log(`--------------------------------------------------`);
+      console.log(`[KR Reviews Summary] 최종 추출된 한국인 원문 리뷰: 총 ${reviews.length}건`);
       if (reviews.length > 0) {
-        console.log(`[KR Reviews] 순수 한국인 리뷰 파싱 완료 (${reviews.length}건):`, reviews);
+        console.log(`[KR Reviews Details]:`, reviews);
       }
 
       if (currentAnalysisData) {
