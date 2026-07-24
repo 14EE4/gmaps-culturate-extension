@@ -309,25 +309,19 @@
     const fullText = (reviewEl.innerText || reviewEl.textContent || '').trim();
     if (!fullText) return false;
 
-    // Google 자동 번역 감지 키워드 (한국어 및 영어 UI 자동 번역본 제외)
-    const translationKeywords = [
+    // 외국어 리뷰가 한국어로 자동 번역된 경우 제외 (한국어 UI 기계번역 문구)
+    const koreanTranslationKeywords = [
       'Google 제공 번역',
       'Google 제공',
       'Google 번역',
       'Google에서 번역함',
       'Google에서 번역한 내용',
       'Google 번역됨',
-      'Translated by Google',
-      '(Translated by Google)',
-      'Translated with Google',
-      'Rate and review',
-      'See original',
-      '원본 보기',
-      'Original'
+      '원본 보기'
     ];
 
     const lowerText = fullText.toLowerCase();
-    for (const keyword of translationKeywords) {
+    for (const keyword of koreanTranslationKeywords) {
       if (lowerText.includes(keyword.toLowerCase())) {
         return false;
       }
@@ -349,8 +343,8 @@
       const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
       const root = mainPane || document;
 
-      // 구글 맵스 개요 및 리뷰 탭 리뷰 카드 컨테이너 선택자 (다국어/다양한 구조 대응)
-      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, [role="article"]'));
+      // 구글 맵스 개요(Overview) 및 리뷰(Reviews) 탭의 모든 리뷰 카드 컨테이너 선택자 포괄
+      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, div.K7x0ed, div.hh25db, div.ffuGub, div.jANrZb, div.W3yE8c, [role="article"]'));
 
       reviewCards.forEach(card => {
         if (!isNativeKoreanReview(card)) return;
@@ -387,7 +381,7 @@
           .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '');
 
         // 2. UI 버튼 및 구글 폼 설문 키워드가 시작되는 첫 번째 위치 이전까지만 텍스트 절단 (Cut-off) - 한국어 및 영어 지원
-        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|More|Less|See translation|See original|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
+        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|More|Less|See translation|See original|Translated by Google|Rate and review|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
         if (uiCutoffRegex.test(text)) {
           text = text.split(uiCutoffRegex)[0];
         }
