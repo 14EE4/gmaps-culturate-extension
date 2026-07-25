@@ -227,17 +227,19 @@
 
   /**
    * 1. URL 패턴에서 gmap_id 정규식 추출
-   * 패턴: !1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)
+   * 히스토리/경로 이전 장소 파라미터 대신, URL 내 가장 마지막(현재 선택된 장소) gmap_id 파라미터 반환
    */
   function extractGMapId(url) {
     if (!url) return null;
-    const match = url.match(/!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)/);
-    if (match && match[1]) {
-      return match[1];
+
+    // URL 내 모든 0x...:0x... hex ID 파라미터 검색 (matchAll)
+    const matches = Array.from(url.matchAll(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/gi));
+    if (matches.length > 0) {
+      // 복수 gmap_id 존재 시 (예: Jimmy John's 검색 후 CAVA 클릭 시) 가장 마지막(현재 장소) ID 선택
+      return matches[matches.length - 1][1];
     }
-    // 대체 파라미터 패턴 (ftid=0x... 또는 query=0x...)
-    const altMatch = url.match(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/);
-    return altMatch ? altMatch[1] : null;
+
+    return null;
   }
 
   /**
