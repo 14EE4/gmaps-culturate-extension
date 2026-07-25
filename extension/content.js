@@ -1052,7 +1052,12 @@
       '서비스': '💁 서비스',
       '가성비': '💰 가성비',
       '분위기': '✨ 분위기',
-      '웨이팅': '⏳ 웨이팅'
+      '웨이팅': '⏳ 웨이팅',
+      '맵기': '🌶️ 맵기',
+      '간(염도)': '🧂 간(염도)',
+      '양': '🥩 양/푸짐함',
+      '위생': '🧹 위생',
+      '주차': '🚗 주차'
     };
     const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
 
