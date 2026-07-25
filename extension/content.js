@@ -170,6 +170,7 @@
     let koreanRating = null;
     let cultureSummary = '';
     let statusBadge = '';
+    let relGap = null;
 
     if (!hasPayload) {
       console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No mvp_payload.json entry found for gmap_id: ${gmapId}`);
@@ -177,9 +178,10 @@
 
     if (resolved.tier === 'measured') {
       const p = resolved.entry;
-      localRating = p.en_mean || googleRating;
-      koreanRating = p.ko_mean;
-      cultureSummary = `${p.name || placeName} (2021 Data): Korean avg ★${p.ko_mean.toFixed(1)} (${p.ko_n} reviews) vs English avg ★${p.en_mean.toFixed(1)} (${p.en_n} reviews).`;
+      localRating = googleRating || p.en_mean || 4.0;
+      relGap = (p.rel_gap !== undefined && p.rel_gap !== null) ? p.rel_gap : null;
+      koreanRating = relGap !== null ? clamp(localRating + relGap, 0, 5) : p.ko_mean;
+      cultureSummary = `${p.name || placeName} (2021 Data): Korean avg ★${p.ko_mean.toFixed(1)} (${p.ko_n} reviews) vs English avg ★${p.en_mean.toFixed(1)} (${p.en_n} reviews). g-gap: ${relGap >= 0 ? '+' : ''}${relGap.toFixed(3)}`;
       if (p.status === 'significant') {
         statusBadge = 'Statistically Significant Difference';
       } else if (p.status === 'low_sample') {
@@ -188,16 +190,19 @@
         statusBadge = 'No Significant Difference';
       }
     } else if (resolved.tier === 'category') {
-      koreanRating = resolved.corrected;
-      const dir = resolved.rel_gap >= 0 ? 'less deducted' : 'more deducted';
-      cultureSummary = `${resolved.category} is ${resolved.rel_gap >= 0 ? '+' : ''}${resolved.rel_gap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${googleRating.toFixed(1)} → Adjusted ★${resolved.corrected.toFixed(2)}.`;
+      relGap = resolved.rel_gap;
+      koreanRating = clamp(localRating + relGap, 0, 5);
+      const dir = relGap >= 0 ? 'less deducted' : 'more deducted';
+      cultureSummary = `${resolved.category} is ${relGap >= 0 ? '+' : ''}${relGap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${localRating.toFixed(1)} + g(${relGap >= 0 ? '+' : ''}${relGap.toFixed(3)}) → Adjusted ★${koreanRating.toFixed(2)}.`;
       statusBadge = 'Category Level Adjustment';
     } else if (resolved.tier === 'category_ns') {
-      koreanRating = null;
+      relGap = 0;
+      koreanRating = localRating;
       cultureSummary = `For ${resolved.category}, no statistically significant rating difference was found between Korean and English reviews.`;
       statusBadge = 'No Category Rating Gap';
     } else {
       koreanRating = null;
+      relGap = null;
       cultureSummary = payloadItem?.s || 'No past dataset rating analysis available for this location.';
       statusBadge = 'No Analysis Data Available';
     }
@@ -215,6 +220,8 @@
       category: resolved.category || resolved.entry?.category || indexEntry?.c || 'Point of Interest',
       local_rating: localRating,
       korean_rating: koreanRating,
+      rel_gap: relGap,
+      g_value: relGap,
       kr_avg: koreanRating,
       kr_count: resolved.entry?.ko_n || 0,
       hasKoreanData: koreanRating !== null,
@@ -832,23 +839,19 @@
       const oldLocal = data.local_rating;
       data.local_rating = rawRating;
 
-      // v2 resolved 규칙 기반 정확한 보정 평점 재계산
-      if (data.resolved) {
+      // v2 rel_gap (g_value) 기반 정확한 보정 평점 재계산 (구글 실시간 평점 + g)
+      if (typeof data.rel_gap === 'number') {
+        data.korean_rating = clamp(rawRating + data.rel_gap, 0, 5);
+      } else if (data.resolved) {
         if (data.resolved.tier === 'measured') {
           data.korean_rating = data.resolved.entry.ko_mean;
         } else if (data.resolved.tier === 'category') {
           data.korean_rating = clamp(rawRating + data.resolved.rel_gap, 0, 5);
-          const dir = data.resolved.rel_gap >= 0 ? 'less deducted' : 'more deducted';
-          data.culture_summary = `${data.resolved.category} is ${data.resolved.rel_gap >= 0 ? '+' : ''}${data.resolved.rel_gap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${rawRating.toFixed(1)} → Adjusted ★${data.korean_rating.toFixed(2)}.`;
         }
-      } else if (typeof data.korean_rating === 'number' && !isNaN(data.korean_rating)) {
-        let delta = data.korean_rating - oldLocal;
-        const calculatedKr = Math.max(1.0, Math.min(5.0, rawRating + delta));
-        data.korean_rating = parseFloat(calculatedKr.toFixed(1));
       }
 
       data.isDOMParsed = true;
-      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal}), KR Adjusted: ${data.korean_rating}`);
+      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (g: ${data.rel_gap}), KR Adjusted: ${data.korean_rating}`);
       return true;
     }
     return false;
@@ -1222,15 +1225,29 @@
             <div class="rating-box korean-box">
               <div class="rating-label">🇰🇷 KR Adjusted Rating</div>
               <div class="rating-score">
-                ${hasKoreanData ? data.korean_rating.toFixed(1) : 'N/A'}
+                ${hasKoreanData ? data.korean_rating.toFixed(2) : 'N/A'}
                 <span class="stars">★</span>
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `Gap ${deltaSign}${data.total_kr_count ? ` (${data.total_kr_count} reviews)` : (data.kr_count ? ` (${data.kr_count} reviews)` : '')}` : 'Collecting data...'}
+                ${hasKoreanData ? `g-gap: ${typeof data.rel_gap === 'number' ? (data.rel_gap >= 0 ? '+' : '') + data.rel_gap.toFixed(3) : 'N/A'}` : 'No data'}
               </div>
             </div>
           </div>
+
+          <!-- Formula Calculation Display Box -->
+          ${typeof data.rel_gap === 'number' ? `
+            <div class="formula-box">
+              <div class="formula-title">🧮 Score Formula: Google + Dataset g = Final</div>
+              <div class="formula-content">
+                <span class="formula-part">Google: <strong>${data.local_rating.toFixed(1)}★</strong></span>
+                <span class="formula-op">+</span>
+                <span class="formula-part" title="Relative gap (g) from dataset">Dataset g: <strong>${data.rel_gap >= 0 ? '+' : ''}${data.rel_gap.toFixed(3)}</strong></span>
+                <span class="formula-op">=</span>
+                <span class="formula-result">Adjusted: <strong>${hasKoreanData ? data.korean_rating.toFixed(2) : 'N/A'}★</strong></span>
+              </div>
+            </div>
+          ` : ''}
 
           <!-- Aspect Score Chips (z/n Spec v2) -->
           <div class="aspect-chips-section">
