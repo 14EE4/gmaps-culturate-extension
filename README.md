@@ -46,20 +46,23 @@
 
 ---
 
-## 🔄 데이터 수신 & 우선순위 구조 (Dual Mode)
+## 🔄 데이터 수신 & 3단계 우선순위 구조 (v2 Dataset Engine)
 
 ```text
-1순위 (최우선): FastAPI 백엔드 호출 (http://localhost:8000/api/analyze)
+1순위 (Tier 1): places[gmap_id] (실측 388개 장소 데이터)
+   │ ➔ 🎯 [Tier 1 Measured Data] (실측 ko_mean, en_mean, rel_gap, 통계 유의성 배지)
    │
-   ├── [성공 시] root data/*.json 동적 스캔 데이터 반환 & 🟢 "FastAPI 백엔드 연결됨" 표시
+2순위 (Tier 2): place_index[gmap_id].c ➔ categories[category] (17,090개 업종 보정)
+   │ ➔ 📊 [Tier 2 Category Estimate] (Google Rating + rel_gap 상대 보정 산출)
    │
-   └── [실패 시 (서버 미실행)] 
-          │
-          └── 2순위 (폴백): 내장 CAVA 데이터 / 오프라인 동적 엔진 사용 & 🟡 "Mock Fallback Engine" 표시
+3순위 (Tier 3): 미등록 장소 ➔ 🔴 [Tier 3 No Past Dataset Available]
+     ➔ korean_rating = N/A (데이터 없음 표출, 오프라인 가짜 Mock 데이터 렌더링 전면 차단)
 ```
 
-1. **1순위 (백엔드 실행 시)**: FastAPI 서버(`backend/main.py`)가 `data/` 폴더 내의 모든 `*.json` 파일을 자동 스캔 및 병합하여 실시간 최신 분석 데이터를 제공합니다.
-2. **2순위 (오프라인/백엔드 미실행 시)**: 확장프로그램 내부에 CAVA 및 주요 식당 데이터셋이 내장되어 있어 백엔드 없이도 100% 독립 동작합니다.
+1. **팀 데이터셋 1순위 사용**: `extension/data/extension_data.json` 및 `mvp_payload.json`을 최우선 연동.
+2. **미국 데모 세션 완전 영문화**: 팝업 UI 및 오버레이 패널 전체 텍스트 English 전환.
+3. **최종 보정 점수 수식 카드 공개**: `Google Rating (4.3) + Dataset g (-0.149) = Adjusted (4.15★)` 프론트엔드 투명 공개.
+4. **Data Status Banner 노출**: 🟢 Tier 1 Measured / 🔵 Tier 2 Category / 🔴 Tier 3 No Data 색상 배너를 장소 카드 상단에 노출.
 
 ---
 

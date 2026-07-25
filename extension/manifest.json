@@ -31,7 +31,11 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["styles.css"],
+      "resources": [
+        "styles.css",
+        "data/extension_data.json",
+        "data/mvp_payload.json"
+      ],
       "matches": [
         "https://www.google.com/*",
         "https://www.google.co.kr/*"
