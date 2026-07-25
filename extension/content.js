@@ -1128,6 +1128,29 @@
       }
     }
 
+    const resolvedTier = data.resolved ? data.resolved.tier : 'none';
+    let tierClass = 'none';
+    let tierIcon = '🔴';
+    let tierTitle = 'No Cultural Dataset Found for this Place';
+
+    if (resolvedTier === 'measured') {
+      tierClass = 'measured';
+      tierIcon = '🟢';
+      tierTitle = 'Measured Place Data Available (Tier 1)';
+    } else if (resolvedTier === 'category') {
+      tierClass = 'category';
+      tierIcon = '🔵';
+      tierTitle = 'Category Estimate Data Available (Tier 2)';
+    } else if (resolvedTier === 'category_ns') {
+      tierClass = 'category_ns';
+      tierIcon = 'ℹ️';
+      tierTitle = 'Category Match (No Rating Gap)';
+    } else {
+      tierClass = 'none';
+      tierIcon = '🔴';
+      tierTitle = 'No Cultural Dataset Available (Tier 3)';
+    }
+
     // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
     const existingSidebar = rootEl.querySelector('#gmap-decoder-sidebar');
     const isUpdate = !!existingSidebar;
@@ -1159,6 +1182,12 @@
               ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
             </div>
             ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
+          </div>
+
+          <!-- Dataset Availability Status Banner -->
+          <div class="data-status-banner data-status-${tierClass}">
+            <span class="status-icon">${tierIcon}</span>
+            <span class="status-text">${tierTitle}</span>
           </div>
 
           <!-- User Preferences Highlight -->
