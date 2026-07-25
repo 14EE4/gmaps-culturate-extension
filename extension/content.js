@@ -32,6 +32,7 @@
       const url = chrome.runtime.getURL('data/extension_data.json');
       const res = await fetch(url);
       extensionData = await res.json();
+      console.log(`[GMap Review Decoder] ✅ Loaded dataset extension_data.json (${Object.keys(extensionData?.places || {}).length} places, ${Object.keys(extensionData?.place_index || {}).length} index entries)`);
     } catch (e) {
       console.warn('[GMap Review Decoder] Failed to load extension_data.json:', e);
       extensionData = null;
@@ -45,6 +46,7 @@
       const url = chrome.runtime.getURL('data/mvp_payload.json');
       const res = await fetch(url);
       mvpPayload = await res.json();
+      console.log(`[GMap Review Decoder] ✅ Loaded payload dataset mvp_payload.json (${Object.keys(mvpPayload || {}).length} items)`);
     } catch (e) {
       console.warn('[GMap Review Decoder] Failed to load mvp_payload.json:', e);
       mvpPayload = null;
@@ -1141,6 +1143,19 @@
 
     if (extensionData && gmapId) {
       const resolved = resolve(gmapId, googleRating);
+      
+      if (resolved.tier === 'measured') {
+        console.log(`[GMap Review Decoder] 🎯 [Tier 1 Measured Data Used] gmap_id: ${gmapId}, place: "${resolved.entry.name}", ko_mean: ${resolved.entry.ko_mean}, en_mean: ${resolved.entry.en_mean}`);
+      } else if (resolved.tier === 'category') {
+        console.log(`[GMap Review Decoder] 📊 [Tier 2 Category Estimate Used] gmap_id: ${gmapId}, category: "${resolved.category}", rel_gap: ${resolved.rel_gap}, adjusted: ${resolved.corrected}`);
+      } else if (resolved.tier === 'category_ns') {
+        console.log(`[GMap Review Decoder] ℹ️ [Tier 2 Category (No Significant Diff)] category: "${resolved.category}"`);
+      } else if (mvpPayload && mvpPayload[gmapId]) {
+        console.log(`[GMap Review Decoder] 📦 [MVP Payload Data Used] gmap_id: ${gmapId}`);
+      } else {
+        console.log(`[GMap Review Decoder] ⚠️ [Tier 3 No Dataset Match / Fallback] gmap_id: ${gmapId}`);
+      }
+
       if (resolved.tier !== 'none' || (mvpPayload && mvpPayload[gmapId])) {
         const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
         return { data: analysisData, isMock: false };
