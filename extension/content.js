@@ -31,7 +31,7 @@
   async function loadCheesecakeReviews() {
     if (cachedCheesecakeReviews) return cachedCheesecakeReviews;
     try {
-      const url = chrome.runtime.getURL('data/cheesecake_factory_reviews.json');
+      const url = chrome.runtime.getURL('data/cheesecake_factory_reviews.json') + '?t=' + Date.now();
       const res = await fetch(url);
       cachedCheesecakeReviews = await res.json();
     } catch (e) {
