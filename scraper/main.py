@@ -230,39 +230,43 @@ class GoogleMapsScraper:
             if not tab_clicked:
                 print("[*] 리뷰 탭 클릭 생략 (기본 로드 영역 진행)")
 
-        # 5. 리뷰 스크롤 컨테이너 감지 (리뷰 카드의 조상 m6QEdf 정교한 탐색)
+        # 5. 리뷰 스크롤 컨테이너 감지 (scrollHeight > clientHeight + 50 인 m6QEdf 전용 탐색)
         scrollable_div = None
         time.sleep(2)
-        initial_cards = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
-        
-        if initial_cards:
-            try:
-                scrollable_div = self.driver.execute_script(
-                    "let el = arguments[0]; "
-                    "while (el && el !== document.body) { "
-                    "  if (el.scrollHeight > el.clientHeight && el.clientHeight > 100) return el; "
-                    "  el = el.parentElement; "
-                    "} "
-                    "return null;",
-                    initial_cards[0]
-                )
-            except Exception as e:
-                print(f"[!] JS 조상 스크롤 컨테이너 탐색 예외: {e}")
 
-        if not scrollable_div:
-            # 폴백 선택자 탐색
-            for d in self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf"):
+        # 1차: CSS selector div.m6QEdf.D6fe2e
+        try:
+            divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf.D6fe2e, div.m6QEdf[role='region']")
+            for d in divs:
                 try:
-                    scroll_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
-                    client_h = self.driver.execute_script("return arguments[0].clientHeight", d)
-                    if scroll_h and client_h and scroll_h > client_h and client_h > 100:
+                    s_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
+                    c_h = self.driver.execute_script("return arguments[0].clientHeight", d)
+                    if s_h and c_h and (s_h - c_h > 50) and d.is_displayed():
                         scrollable_div = d
                         break
                 except Exception:
                     pass
+        except Exception:
+            pass
+
+        # 2차: 전체 div.m6QEdf 중 스크롤 영역 감지
+        if not scrollable_div:
+            try:
+                divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf")
+                for d in divs:
+                    try:
+                        s_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
+                        c_h = self.driver.execute_script("return arguments[0].clientHeight", d)
+                        if s_h and c_h and (s_h - c_h > 50) and d.is_displayed():
+                            scrollable_div = d
+                            break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         if scrollable_div:
-            print("[+] 리뷰 스크롤 전용 컨테이너를 정상 감지하였습니다.")
+            print("[+] 리뷰 무한 스크롤 전용 컨테이너(div.m6QEdf.D6fe2e)를 정상 감지하였습니다.")
         else:
             print("[!] 리뷰 스크롤 전용 컨테이너 감지 실패, body 스크롤을 시도합니다.")
 
@@ -374,13 +378,13 @@ class GoogleMapsScraper:
             if len(reviews_data) >= max_reviews:
                 break
 
-            # 스크롤 내리기
+            # 스크롤 내리기 (scrollHeight 지점까지 내리기)
             if scrollable_div:
                 self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scrollable_div)
             else:
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-            time.sleep(2)
+            time.sleep(2.5)
 
             # 더 이상 로딩할 리뷰가 없는지 판별
             current_card_count = len(review_cards)
