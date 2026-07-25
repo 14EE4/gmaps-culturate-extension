@@ -195,7 +195,7 @@ class GoogleMapsScraper:
 
         print(f"[+] 전체 평점: {overall_rating} | 총 리뷰 정보: {total_reviews_count}")
 
-        # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지)
+        # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지 및 탭/평점 버튼 클릭)
         print("[+] 리뷰 탭 상태 감지 및 이동 중...")
         card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
         existing_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
@@ -206,34 +206,42 @@ class GoogleMapsScraper:
             tab_clicked = False
             time.sleep(2)
             
-            tab_selectors = [
-                "button[aria-label*='리뷰']",
-                "button[aria-label*='Reviews']",
-                "button[aria-label*='reviews']",
-                "button.hh2ftd"
-            ]
-
-            for sel in tab_selectors:
+            # 4-1. 평점/리뷰 버튼 및 탭 클릭 시도
+            click_candidates = self.driver.find_elements(By.CSS_SELECTOR, "button[role='tab'], button.hh2ftd, button[data-tab-index], button[aria-label*='reviews'], button[aria-label*='리뷰'], span.ce3eFc, button.HH2Bff")
+            for b in click_candidates:
                 try:
-                    btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
-                    for b in btns:
-                        label = (b.get_attribute("aria-label") or "") + " " + (b.get_attribute("textContent") or b.text or "")
-                        label_lower = label.lower()
-                        if ("리뷰" in label or "reviews" in label_lower or "review" in label_lower) and b.is_displayed():
-                            self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
-                            self.driver.execute_script("arguments[0].click();", b)
-                            tab_clicked = True
-                            clean_lbl = re.sub(r'[\uE000-\uF8FF]', '', label).strip()
-                            print(f"[+] 리뷰 탭 클릭 완료 ({clean_lbl if clean_lbl else sel})")
-                            time.sleep(3)
-                            break
-                    if tab_clicked:
+                    txt = (b.get_attribute("textContent") or b.get_attribute("innerText") or b.text or "").strip()
+                    aria = (b.get_attribute("aria-label") or "").strip()
+                    combined = f"{aria} {txt}".lower()
+                    
+                    if ("리뷰" in combined or "review" in combined or "reviews" in combined) and b.is_displayed():
+                        if ("about" in combined or "정보" in combined or "개요" in combined or "overview" in combined) and "review" not in combined and "리뷰" not in combined:
+                            continue
+                        self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
+                        self.driver.execute_script("arguments[0].click();", b)
+                        tab_clicked = True
+                        clean_lbl = re.sub(r'[\uE000-\uF8FF]', '', txt or aria).strip()
+                        print(f"[+] 리뷰 탭/버튼 클릭 완료 ({clean_lbl if clean_lbl else '리뷰 영역'})")
+                        time.sleep(4)
                         break
                 except Exception:
                     pass
 
-            if not tab_clicked:
-                print("[*] 리뷰 탭 클릭 생략 (기본 로드 영역 진행)")
+            # 4-2. 탭 클릭 미작동 시 리뷰 전용 파라미터(!9m1!1b1) 자동 URL 보정 후 재접속
+            existing_cards_after_click = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+            if len(existing_cards_after_click) == 0:
+                if "!9m1!1b1" not in url:
+                    print("[+] 리뷰 전용 파라미터(!9m1!1b1)로 URL 자동 보정 재접속 중...")
+                    direct_review_url = url
+                    if "data=" in direct_review_url:
+                        direct_review_url = direct_review_url.replace("data=", "data=!9m1!1b1")
+                    elif "?" in direct_review_url:
+                        direct_review_url = direct_review_url.replace("?", "/data=!9m1!1b1?")
+                    else:
+                        direct_review_url = direct_review_url + "/data=!9m1!1b1"
+                    
+                    self.driver.get(direct_review_url)
+                    time.sleep(4)
 
         # 5. 리뷰 스크롤 컨테이너 감지
         scrollable_div = None
