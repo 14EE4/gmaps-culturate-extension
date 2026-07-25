@@ -22,13 +22,18 @@
   let showAllReviews = false;
 
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
+  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
     // CAVA (USC Village LA) - Main Test Sample
     '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
       gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
       place_name: 'CAVA (USC Village)',
+      address: '3201 S Hoover St Suite 1840, Los Angeles, CA 90089',
+      category: 'Mediterranean restaurant, Salad shop, Fast casual',
       local_rating: 4.4,
       korean_rating: 3.8,
+      kr_avg: 3.8,
+      kr_count: 15,
       culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
       metrics: {
         taste: { local: 4.5, kr: 3.8 },
@@ -38,14 +43,17 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Fully customizable fresh Mediterranean bowl"',
           meaning: '서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
         },
         {
+          tag_id: 2,
           literal: '"Pita chips and Crazy Feta are top tier"',
           meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
         },
         {
+          tag_id: 3,
           literal: '"Super fast line even when crowded"',
           meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
         }
@@ -56,8 +64,12 @@
     '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3': {
       gmap_id: '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3',
       place_name: 'Sun Nong Dan (선농단 LA)',
+      address: '3470 W 6th St #7, Los Angeles, CA 90020',
+      category: 'Korean restaurant, Galbi-jjim, Soup',
       local_rating: 4.6,
       korean_rating: 4.4,
+      kr_avg: 4.4,
+      kr_count: 22,
       culture_summary: '갈비찜과 치즈 사리의 높은 완성도. 현지인과 한국인 모두 최상위 평가이나 극심한 대기 시간과 주차 난이도에 엄격함.',
       metrics: {
         taste: { local: 4.8, kr: 4.7 },
@@ -67,10 +79,12 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Portions are huge, order for groups"',
           meaning: '치즈 갈비찜 소자도 2-3인용. 양이 매우 많아 가성비 양호함.'
         },
         {
+          tag_id: 2,
           literal: '"Waited 45 mins, staff is super rushed"',
           meaning: '회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함.'
         }
@@ -81,8 +95,12 @@
     '0x80c2c7c594236e71:0x5e2b036577317ba9': {
       gmap_id: '0x80c2c7c594236e71:0x5e2b036577317ba9',
       place_name: 'BCD Tofu House (북창동순두부)',
+      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
+      category: 'Korean restaurant, Tofu house, Korean BBQ',
       local_rating: 4.5,
       korean_rating: 3.9,
+      kr_avg: 3.9,
+      kr_count: 18,
       culture_summary: '외국인에게는 표준 K-Food 기준점이나, 한국인 기준으로는 본국 순두부 전문점 대비 깊은 국물 맛이 다소 아쉽고 과도한 팁이 부담됨.',
       metrics: {
         taste: { local: 4.6, kr: 3.9 },
@@ -92,6 +110,7 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Authentic Korean comfort food"',
           meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
         }
@@ -102,8 +121,12 @@
     '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
       gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
       place_name: '북창동 순두부 (BCD Tofu House LA)',
+      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
+      category: 'Korean restaurant, Soft Tofu stew',
       local_rating: 4.5,
       korean_rating: 4.0,
+      kr_avg: 4.0,
+      kr_count: 20,
       culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
       metrics: {
         taste: { local: 4.6, kr: 4.0 },
@@ -113,10 +136,12 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Best BCD Tofu in K-Town LA"',
           meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
         },
         {
+          tag_id: 2,
           literal: '"Authentic Korean spicy tofu stew"',
           meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
         }
@@ -127,8 +152,12 @@
     '0x89c259837920ab4d:0xcf20c1507df05e54': {
       gmap_id: '0x89c259837920ab4d:0xcf20c1507df05e54',
       place_name: 'Peter Luger Steak House',
+      address: '178 Broadway, Brooklyn, NY 11211',
+      category: 'Steak house, American restaurant',
       local_rating: 4.4,
       korean_rating: 3.7,
+      kr_avg: 3.7,
+      kr_count: 12,
       culture_summary: '역사적인 드라이에이징 스테이크 전문점. 구글 평점은 높으나 Cash Only(현금 결제 전용) 및 고압적인 서비스로 한국인 가성비 평가 하락.',
       metrics: {
         taste: { local: 4.7, kr: 4.2 },
@@ -138,10 +167,12 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Classic waiter service with Brooklyn attitude"',
           meaning: '친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음.'
         },
         {
+          tag_id: 2,
           literal: '"Cash or debit only, be prepared!"',
           meaning: '신용카드 불가로 현금 미소지 시 큰 불편 유발.'
         }
@@ -150,18 +181,65 @@
   };
 
   /**
+   * 1. 사전 분석 데이터 구조의 가변성 대응 (Adapter Pattern)
+   * @param {Object} pastData
+   * @returns {{ pastKrCount: number, pastKrRating: number }}
+   */
+  function extractPastKrData(pastData) {
+    if (!pastData) return { pastKrCount: 0, pastKrRating: 0 };
+    const pastKrCount = pastData?.kr_count ?? pastData?.passed_min_reviews ?? pastData?.korean_review_count ?? (pastData?.korean_rating ? 15 : 0);
+    const pastKrRating = pastData?.kr_avg ?? pastData?.avg_rating ?? pastData?.korean_rating ?? 0;
+    return { pastKrCount: Number(pastKrCount) || 0, pastKrRating: Number(pastKrRating) || 0 };
+  }
+
+  /**
+   * 2. 사전 분석 데이터(~21.09)와 실시간 DOM 데이터(21.09~)의 한국인 평점 가중 통합 계산 (Weighted Average)
+   * @param {Object} pastData
+   * @param {Array<{rating: number|null}>} liveKrReviews
+   * @returns {{ combinedRating: number|null, totalKrCount: number, pastKrCount: number, liveKrCount: number, pastKrRating: number, liveKrRating: number|null }}
+   */
+  function calculateCombinedKrRating(pastData, liveKrReviews = []) {
+    const { pastKrCount, pastKrRating } = extractPastKrData(pastData);
+
+    const validLiveReviews = (liveKrReviews || []).filter(r => typeof r.rating === 'number' && !isNaN(r.rating) && r.rating > 0);
+    const liveKrCount = validLiveReviews.length;
+    const liveKrScoreSum = validLiveReviews.reduce((sum, r) => sum + r.rating, 0);
+    const liveKrRating = liveKrCount > 0 ? parseFloat((liveKrScoreSum / liveKrCount).toFixed(1)) : null;
+
+    const pastKrScoreSum = pastKrRating * pastKrCount;
+    const totalKrCount = pastKrCount + liveKrCount;
+
+    let combinedRating = null;
+    if (totalKrCount > 0) {
+      const rawAvg = (pastKrScoreSum + liveKrScoreSum) / totalKrCount;
+      combinedRating = parseFloat(rawAvg.toFixed(1));
+    }
+
+    return {
+      combinedRating,
+      totalKrCount,
+      pastKrCount,
+      liveKrCount,
+      pastKrRating,
+      liveKrRating
+    };
+  }
+
+  /**
    * 1. URL 패턴에서 gmap_id 정규식 추출
-   * 패턴: !1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)
+   * 히스토리/경로 이전 장소 파라미터 대신, URL 내 가장 마지막(현재 선택된 장소) gmap_id 파라미터 반환
    */
   function extractGMapId(url) {
     if (!url) return null;
-    const match = url.match(/!1s(0x[0-9a-fA-F]+:0x[0-9a-fA-F]+)/);
-    if (match && match[1]) {
-      return match[1];
+
+    // URL 내 모든 0x...:0x... hex ID 파라미터 검색 (matchAll)
+    const matches = Array.from(url.matchAll(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/gi));
+    if (matches.length > 0) {
+      // 복수 gmap_id 존재 시 (예: Jimmy John's 검색 후 CAVA 클릭 시) 가장 마지막(현재 장소) ID 선택
+      return matches[matches.length - 1][1];
     }
-    // 대체 파라미터 패턴 (ftid=0x... 또는 query=0x...)
-    const altMatch = url.match(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/);
-    return altMatch ? altMatch[1] : null;
+
+    return null;
   }
 
   /**
@@ -231,6 +309,84 @@
 
     // 3. Fallback to document.title
     return extractPlaceNameFromTitle();
+  }
+
+  /**
+   * 주소 텍스트 정화 (Google Material Symbols 아이콘 폰트 특수문자 및 네모 박스 제거)
+   */
+  function cleanAddressText(str) {
+    if (!str) return '';
+    return str
+      .replace(/[\uE000-\uF8FF]/g, '') // Google Symbols / Font Awesome Private Use Area 특수 기호 제거
+      .replace(/^[^\w\d\uAC00-\uD7A3가-힣]+/, '') // 문장 앞단 아이콘 기호 제거
+      .replace(/^(주소|Address):\s*/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * DOM에서 장소 주소 추출
+   * (Google Maps data-item-id="address" 버튼 및 aria-label / .Io6YTe 기반)
+   */
+  function extractAddressFromDOM() {
+    try {
+      // 1. data-item-id="address" 및 data-tooltip="주소 복사" 셀렉터 우선 검사
+      const addressBtn = document.querySelector('button[data-item-id="address"], [data-item-id="address"], button[data-tooltip="주소 복사"], button[data-tooltip="Copy address"]');
+      if (addressBtn) {
+        // .Io6YTe 텍스트 엘리먼트 우선 선택
+        const ioEl = addressBtn.querySelector('.Io6YTe');
+        if (ioEl && ioEl.textContent.trim()) {
+          const cleaned = cleanAddressText(ioEl.textContent);
+          if (cleaned) return cleaned;
+        }
+
+        // 일반 하위 텍스트 엘리먼트 (.rogA2c, div)
+        const textEl = addressBtn.querySelector('.rogA2c, div');
+        if (textEl && textEl.textContent.trim()) {
+          const cleaned = cleanAddressText(textEl.textContent);
+          if (cleaned) return cleaned;
+        }
+
+        // aria-label 파싱 ("주소: 3201 S Hoover St..." 또는 "Address: 3201 S Hoover St...")
+        const ariaLabel = addressBtn.getAttribute('aria-label') || '';
+        if (ariaLabel) {
+          const cleaned = cleanAddressText(ariaLabel);
+          if (cleaned) return cleaned;
+        }
+      }
+
+      // 2. aria-label 기반 Fallback 검색 ([aria-label*="주소:"], [aria-label*="Address:"])
+      const ariaEl = document.querySelector('[aria-label*="주소:"], [aria-label*="Address:"]');
+      if (ariaEl) {
+        const label = ariaEl.getAttribute('aria-label') || '';
+        const cleaned = cleanAddressText(label);
+        if (cleaned) return cleaned;
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 주소 추출 중 오류:', e);
+    }
+    return null;
+  }
+
+  /**
+   * DOM에서 장소 카테고리 추출
+   * (Google Maps button.DkEaL 및 jsaction*="category" 기반)
+   */
+  function extractCategoryFromDOM() {
+    try {
+      const categoryBtns = Array.from(document.querySelectorAll('button.DkEaL, button[jsaction*="category"]'));
+      if (categoryBtns.length > 0) {
+        const categories = categoryBtns
+          .map(btn => (btn.innerText || btn.textContent || '').trim())
+          .filter(text => text && text.length > 0 && !text.includes('·'));
+        if (categories.length > 0) {
+          return Array.from(new Set(categories)).join(', ');
+        }
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 카테고리 추출 중 오류:', e);
+    }
+    return null;
   }
 
   /**
@@ -309,6 +465,8 @@
   function cleanReviewText(rawText, author = '') {
     if (!rawText) return '';
 
+    console.log(`[cleanReviewText] 🧼 세탁 시작 - 입력 원본:`, JSON.stringify(rawText));
+
     let pureText = rawText.replace(/\u00A0/g, ' ');
 
     if (author && author !== '익명') {
@@ -323,35 +481,45 @@
       .replace(/지역 가이드\s*·\s*리뷰\s*\d+개(\s*·\s*사진\s*\d+장)?/gi, '')
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
+    console.log(`[cleanReviewText]   ├ Step 1 (헤더/작성일 제거 후):`, JSON.stringify(pureText));
 
-    // 2. UI 버튼, 설문/폼 항목 (식사 유형, 점심 식사, 주문 유형, 대기 시간 등) 및 하단 액션 키워드 절단 (Cut-off)
-    // 주의: '좋아요'는 본문 문장("음식맛도 좋아요")에 포함될 수 있으므로 줄바꿈/독립 버튼 형태일 때만 절단
-    const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:|\n+\s*(?:좋아요|공유|Like|Share)\b)/i;
+    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유 -,  1  공유 -, 좋아요, 공유 등) 전면 절단
+    // 주의: 한글 단어(공유, 좋아요) 뒤에는 \b 가 동작하지 않으므로 (?![가-힣a-zA-Z]) 사용
+    pureText = pureText
+      .replace(/(?:\r?\n+|\s+|[\uE000-\uF8FF\u2600-\u27BF\uE800-\uE8FF\uEA00-\uEAFF])*(?:|)?\s*(?:\d+\s*)?(?:좋아요\s+)?(?:\d+\s*)?(?:공유|Share)(?![가-힣a-zA-Z])[\s\S]*$/i, '')
+      .replace(/(?:\r?\n+|\s+|[\uE000-\uF8FF\u2600-\u27BF\uE800-\uE8FF\uEA00-\uEAFF])*(?:|)?\s*(?:좋아요|Like)(?![가-힣a-zA-Z])[\s\S]*$/i, '');
+    console.log(`[cleanReviewText]   ├ Step 2 (하단 액션버튼 절단 후):`, JSON.stringify(pureText));
+
+    // 3. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 대기 시간 등) 절단 (Cut-off)
+    const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:)/i;
 
     if (uiCutoffRegex.test(pureText)) {
       pureText = pureText.split(uiCutoffRegex)[0];
     }
+    console.log(`[cleanReviewText]   ├ Step 3 (UI 버튼/폼 절단 후):`, JSON.stringify(pureText));
 
-    // 3. 잔여 서비스/설문 옵션 키워드 및 수정일/단독 버튼 제거
+    // 4. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
+    pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // 5. 문장 끝단 잔여 키워드, 특수문자, 대시(-) 및 단독 숫자 찌꺼기 2중 제거
     pureText = pureText
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
-      .replace(/\b(?:좋아요|공유|Like|Share)\s*$/gi, '');
-
-    // 4. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거 및 공백 정돈
-    pureText = pureText
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
-      .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
-      .replace(/\n+/g, ' ')
+      .replace(/[\s\-\u2010-\u2015\uE000-\uF8FF\u2600-\u27BF]+$/g, '')
+      .replace(/\s+\d+\s*$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+    console.log(`[cleanReviewText]   ├ Step 5 (잔여 찌꺼기/대시 제거 후):`, JSON.stringify(pureText));
 
-    // 5. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
+    // 6. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
     if (!pureText || !/[a-zA-Z\uAC00-\uD7A3]/.test(pureText)) {
       pureText = '';
     }
+
+    console.log(`[cleanReviewText] ✨ 세탁 완료 - 최종 결과:`, JSON.stringify(pureText));
 
     return pureText;
   }
@@ -400,8 +568,20 @@
       author = authorEl.textContent.trim();
     }
 
-    // 구글 맵스 UI 시스템 키워드 제거 후 순수 본문(pureText) 생성
-    const pureText = cleanReviewText(fullText, author);
+    // 주변 장소 디렉토리 리스트 카드 예외 처리 (영업 종료/영업 시작 등 매장 정보 포함 및 리뷰 작성자 부재)
+    const isStoreDirectoryCard = (author === '익명') && /(?:영업\s*종료|영업\s*시작|곧\s*영업|체육관|음식점|전문점|카페|베이커리|\d+\(\d+\)\s*·\s*\$\$)/i.test(fullText);
+    if (isStoreDirectoryCard) {
+      if (logReason) {
+        console.log(`  [KR Review Filter ❌] 제외됨 (이유: 주변 장소/디렉토리 리스트 카드)`);
+        console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+      }
+      return false;
+    }
+
+    // 리뷰 본문 전용 엘리먼트(.wiYeB 등) 타겟팅 파싱 (헤더/하단 버튼 블록 원천 분리)
+    const bodyEl = reviewEl.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]');
+    const rawBodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : fullText;
+    const pureText = cleanReviewText(rawBodyText, author);
 
     // 순수 본문(pureText) 검사 후 한글 유니코드 존재 여부 확인
     const hasKoreanChar = /[\uAC00-\uD7A3]/.test(pureText);
@@ -430,11 +610,35 @@
     const seenKeys = new Set();
 
     try {
-      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
-      const root = mainPane || document;
+      // 리뷰 카드(div.jftiEf, div[data-review-id])가 존재하는 '리뷰 전용 스크롤 DOM 컨테이너'만 정밀 타겟팅
+      let reviewContainer = null;
+      const sampleCard = document.querySelector('div.jftiEf, div[data-review-id]');
+      if (sampleCard) {
+        let curr = sampleCard.parentElement;
+        while (curr && curr !== document.body) {
+          if (curr.classList.contains('m6QEdf') || curr.getAttribute('role') === 'region' || curr.getAttribute('tabindex') === '-1') {
+            reviewContainer = curr;
+            break;
+          }
+          curr = curr.parentElement;
+        }
+      }
 
-      // 구글 맵스 개요(Overview) 및 리뷰(Reviews) 탭의 모든 리뷰 카드 컨테이너 선택자 포괄
-      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, div.K7x0ed, div.hh25db, div.ffuGub, div.jANrZb, div.W3yE8c, [role="article"]'));
+      const root = reviewContainer || document.querySelector('[role="main"]') || document;
+
+      // 구글 맵스 순수 리뷰 카드 선택자 (jftiEf, data-review-id)
+      let rawCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id]'));
+
+      // Fallback: jftiEf 클래스가 탐지되지 않는 경계선 경우 대체 선택자 사용
+      if (rawCards.length === 0) {
+        rawCards = Array.from(root.querySelectorAll('div.WMD5W, div.xiA35c, [role="article"]'));
+      }
+
+      // 중첩 child 요소 제거 (상위 jftiEf 카드만 필터링하여 중복 파싱 차단)
+      const reviewCards = rawCards.filter(card => {
+        const parentCard = card.parentElement ? card.parentElement.closest('div.jftiEf, div[data-review-id]') : null;
+        return !parentCard;
+      });
 
       console.log(`[KR Reviews Diagnostics] DOM 내 리뷰 카드 후보 탐지: 총 ${reviewCards.length}개 발견`);
 
@@ -463,11 +667,13 @@
           rating = parseRatingFromAriaLabel(ariaText);
         }
 
-        // 원본 DOM 텍스트 보존
-        const rawText = (card.innerText || card.textContent || '').trim();
+        const rawCardText = (card.innerText || card.textContent || '').trim();
+        // 리뷰 본문 전용 엘리먼트(.wiYeB 등) 타겟팅 파싱 (하단 버튼/작성자 헤더 원천 분리)
+        const bodyEl = card.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]');
+        const rawBodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : rawCardText;
 
         // 텍스트 정화 (cleanReviewText 사용)
-        const text = cleanReviewText(rawText, author);
+        const text = cleanReviewText(rawBodyText, author);
 
         if (!text || !/[\uAC00-\uD7A3]/.test(text)) {
           console.log(`  [KR Review Filter ❌] 제외됨 (이유: 세탁 후 한글 본문 소실)`);
@@ -480,14 +686,14 @@
         if (dateEl && dateEl.textContent.trim()) {
           date = dateEl.textContent.trim();
         } else {
-          const dateMatch = rawText.match(/(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)/i);
+          const dateMatch = rawCardText.match(/(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)/i);
           if (dateMatch) {
             date = dateMatch[0].trim();
           }
         }
 
         console.log(`  👤 작성자: ${author} ${date ? `(${date})` : ''} | 별점: ★ ${rating || '미기재'}`);
-        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
+        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawBodyText));
         console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
         // 중복 방지 키 생성 (author + text 30자)
@@ -516,15 +722,21 @@
 
         currentAnalysisData.native_korean_reviews = reviews;
 
-        // 실제 탐지된 한국인 리뷰 평점 평균 계산 및 반영
-        const ratedReviews = reviews.filter(r => typeof r.rating === 'number' && !isNaN(r.rating));
-        if (ratedReviews.length > 0) {
-          const sum = ratedReviews.reduce((acc, r) => acc + r.rating, 0);
-          const avgKrRating = parseFloat((sum / ratedReviews.length).toFixed(1));
-          currentAnalysisData.korean_rating = avgKrRating;
+        // 사전 분석 데이터(~21.09)와 실시간 DOM 데이터의 가중 통합 계산 (Weighted Average)
+        const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
+        if (combined.combinedRating !== null) {
+          currentAnalysisData.korean_rating = combined.combinedRating;
+          currentAnalysisData.total_kr_count = combined.totalKrCount;
+          currentAnalysisData.past_kr_count = combined.pastKrCount;
+          currentAnalysisData.live_kr_count = combined.liveKrCount;
           currentAnalysisData.hasKoreanData = true;
           currentAnalysisData.isRealKoreanReviewsReflected = true;
-          currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${ratedReviews.length}건의 평점 평균(★ ${avgKrRating})이 반영되었습니다.`;
+
+          if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
+            currentAnalysisData.culture_summary = `사전 데이터 ${combined.pastKrCount}건(★ ${combined.pastKrRating})과 실시간 추출 리뷰 ${combined.liveKrCount}건(★ ${combined.liveKrRating})이 가중 통합된 평균 평점(★ ${combined.combinedRating})입니다.`;
+          } else if (combined.liveKrCount > 0) {
+            currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${combined.liveKrCount}건의 평점 평균(★ ${combined.combinedRating})이 반영되었습니다.`;
+          }
         }
 
         const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
@@ -584,14 +796,31 @@
         }
         extractNativeKoreanReviewsFromDOM();
 
-        // 장소명이 뒤늦게 렌더링된 경우 업데이트
+        // 장소명, 주소 또는 카테고리가 뒤늦게 렌더링된 경우 업데이트
+        const freshAddr = extractAddressFromDOM();
+        let isAddrUpdated = false;
+        if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
+          data.address = freshAddr;
+          isAddrUpdated = true;
+        }
+
+        const freshCat = extractCategoryFromDOM();
+        if (freshCat && (!data.category || data.category === 'Restaurant, Point of Interest')) {
+          data.category = freshCat;
+          isAddrUpdated = true;
+        }
+
         if (data.place_name && data.place_name.startsWith('장소 (')) {
           const freshName = extractPlaceNameFromDOM();
           if (freshName && !freshName.startsWith('장소 (')) {
             data.place_name = freshName;
             currentPlaceName = freshName;
-            renderSidebar(data, isMock);
+            isAddrUpdated = true;
           }
+        }
+
+        if (isAddrUpdated) {
+          renderSidebar(data, isMock);
         }
       }, delay);
       retryTimers.push(timerId);
@@ -745,8 +974,12 @@
     return {
       gmap_id: gmapId || `0x${hash.toString(16)}:0x${(hash * 31).toString(16)}`,
       place_name: displayName,
+      address: 'Google Maps Location',
+      category: 'Restaurant, Point of Interest',
       local_rating: parseFloat(localRating),
       korean_rating: null,
+      kr_avg: null,
+      kr_count: 0,
       hasKoreanData: false,
       culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
       metrics: {
@@ -757,6 +990,7 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '💬 한국인 리뷰 미감지 장소',
           meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
         }
@@ -839,7 +1073,8 @@
           <div class="place-card">
             <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
             <div class="place-meta">
-              <span>📍 Google Maps Place</span>
+              <span>📍 ${escapeHTML(data.address || 'Google Maps Place')}</span>
+              ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
             </div>
             ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
           </div>
@@ -866,7 +1101,7 @@
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `격차 ${deltaSign}` : '데이터 수집 중'}
+                ${hasKoreanData ? `격차 ${deltaSign}${data.total_kr_count ? ` (총 ${data.total_kr_count}건)` : (data.kr_count ? ` (총 ${data.kr_count}건)` : '')}` : '데이터 수집 중'}
               </div>
             </div>
           </div>
@@ -1103,7 +1338,17 @@
     currentAnalysisData = data;
     currentIsMock = isMock;
 
-    // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
+    // DOM에서 실제 주소, 카테고리, 현지 평점 및 한국어 리뷰 파싱 시도
+    const liveAddr = extractAddressFromDOM();
+    if (liveAddr) {
+      currentAnalysisData.address = liveAddr;
+    }
+
+    const liveCat = extractCategoryFromDOM();
+    if (liveCat) {
+      currentAnalysisData.category = liveCat;
+    }
+
     applyDOMRating(currentAnalysisData);
     extractNativeKoreanReviewsFromDOM();
 
