@@ -53,11 +53,25 @@
    │ ➔ 🎯 [Tier 1 Measured Data] (실측 ko_mean, en_mean, rel_gap, 통계 유의성 배지)
    │
 2순위 (Tier 2): place_index[gmap_id].c ➔ categories[category] (17,090개 업종 보정)
-   │ ➔ 📊 [Tier 2 Category Estimate] (Google Rating + rel_gap 상대 보정 산출)
+   │ ➔ 📊 [Category Level Adjustment] (Google Rating + rel_gap 상대 보정 산출)
    │
 3순위 (Tier 3): 미등록 장소 ➔ 🔴 [Tier 3 No Past Dataset Available]
      ➔ korean_rating = N/A (데이터 없음 표출, 오프라인 가짜 Mock 데이터 렌더링 전면 차단)
 ```
+
+### 📊 데이터 유/무 및 보정 방식 3단계 구분 표
+
+| 구분 단계 | 데이터셋 존재 여부 | 프론트엔드 노출 배지 | 평점 산출 및 표출 로직 |
+| :--- | :--- | :--- | :--- |
+| 🟢 **Tier 1 (Measured Place Data)** | **해당 장소 실측 데이터 존재** <br>(388개 주요 식당) | `🟢 Measured Place Data Available (Tier 1)` | 한국인 실측 평균 (`ko_mean`) 및 상대격차(`rel_gap`) 직접 적용 |
+| 🔵 **Tier 2 (Category Level Adjustment)** | 해당 장소 실측은 없으나 **업종 데이터 존재** <br>(17,090개 식당 검색 인덱스) | `🔵 Category Estimate Data Available (Tier 2)` | **`Google Rating + 업종 rel_gap(g)`** 추정 보정 적용 |
+| 🔴 **Tier 3 (No Dataset Available)** | **데이터 완전 미존재** | `🔴 No Cultural Dataset Available (Tier 3)` | **`N/A` (데이터 없음)** 표출 (가짜 Mock 데이터 렌더링 전면 차단) |
+
+### 📌 `Category Level Adjustment` (2순위 업종 보정) 란?
+- **개념**: `places` 테이블에 특정 장소의 직접 실측 데이터가 없더라도, 17,090개 식당 검색 인덱스(`place_index`)에 등록되어 있는 장소의 경우 해당 업종 카테고리(`categories`)의 한국인 리뷰 상대격차(`rel_gap`)를 기반으로 평점을 추정 산출하는 보정 기법입니다.
+- **상태 표출**: 오버레이 상단에 **`Category Level Adjustment`** 상태 배지가 노출되며, `Google Rating + rel_gap(g) = Adjusted Score` 수식으로 최종 점수가 산출됩니다.
+
+---
 
 1. **팀 데이터셋 1순위 사용**: `extension/data/extension_data.json` 및 `mvp_payload.json`을 최우선 연동.
 2. **미국 데모 세션 완전 영문화**: 팝업 UI 및 오버레이 패널 전체 텍스트 English 전환.
