@@ -45,8 +45,20 @@ py scraper/main.py
 # 수집할 리뷰 개수를 입력하세요 (전체 3,814개 중, 기본값: 20): 
 ```
 
+> 💡 **URL 타입 자동 대응**: 구글 맵스 URL에 리뷰 탭 파라미터(`!9m1!1b1`)가 없는 개요(Overview) URL을 붙여넣어도 자동으로 리뷰 탭으로 전환하여 수집을 시작합니다. 어떤 형식의 URL이든 100% 작동합니다.
+
 > 💡 **최대 개수 자동 캡핑 & 조기 종료**: 입력한 수집 개수가 식당의 실제 전체 리뷰 수보다 많은 경우(예: 전체 29개인 식당에 200개 수집 요청), 목표 수량이 전체 리뷰 수(29개)로 자동 조정되며 도달하는 즉시 불필요한 스크롤 반복 없이 바로 수집을 마칩니다.
 
+
+### 2. 고급 옵션 (URL 및 개수 직접 지정)
+
+```powershell
+# URL 및 수집 목표 개수 지정 (기본 헤드리스 모드)
+py scraper/main.py --url "https://www.google.com/maps/place/..." --max-reviews 500
+
+# 브라우저 창을 직접 보면서 수집하고 싶은 경우
+py scraper/main.py --url "https://www.google.com/maps/place/..." --max-reviews 100 --no-headless
+```
 
 ### 3. 수집 결과 및 소요 시간 출력
 
@@ -57,14 +69,6 @@ py scraper/main.py
 [+] 총 수집 건수: 10건
 [+] 총 소요 시간: 15.6초
 [+] 저장 경로: E:\workspace\agy_workspace\gmaps-culturate-extension\scraper\output\Holbox_reviews.csv
-```
-
-```powershell
-# URL 및 수집 목표 개수 지정 (기본 헤드리스 모드)
-py scraper/main.py --url "https://www.google.com/maps/place/..." --max-reviews 500
-
-# 브라우저 창을 직접 보면서 수집하고 싶은 경우
-py scraper/main.py --url "https://www.google.com/maps/place/..." --max-reviews 100 --no-headless
 ```
 
 ---
