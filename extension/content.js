@@ -1105,12 +1105,17 @@
       const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
 
       // Check Debug Mode Override for The Cheesecake Factory
-      if (isDebugMode && isCheesecakeTarget(gmapId, placeName)) {
+      const isTarget = isCheesecakeTarget(gmapId, placeName);
+      console.log(`[GMap Review Decoder Audit] 🔍 isDebugMode: ${isDebugMode}, isCheesecakeTarget: ${isTarget}, gmapId: ${gmapId}, placeName: "${placeName}"`);
+
+      if (isDebugMode && isTarget) {
         const csvReviews = await loadCheesecakeReviews();
         if (csvReviews && csvReviews.length > 0) {
           analysisData.native_korean_reviews = csvReviews;
           analysisData.is_debug_override = true;
-          console.log(`[GMap Review Decoder] 🐞 [Debug Mode Active] Overridden Cheesecake Factory reviews with ${csvReviews.length} CSV items.`);
+          console.log(`[GMap Review Decoder Audit] 🎉 SUCCESS! Overridden Cheesecake Factory reviews with ${csvReviews.length} CSV items.`);
+        } else {
+          console.warn(`[GMap Review Decoder Audit] ⚠️ cheesecake_factory_reviews.json was loaded but returned 0 items.`);
         }
       }
 
