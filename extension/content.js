@@ -556,6 +556,16 @@
       author = authorEl.textContent.trim();
     }
 
+    // 주변 장소 디렉토리 리스트 카드 예외 처리 (영업 종료/영업 시작 등 매장 정보 포함 및 리뷰 작성자 부재)
+    const isStoreDirectoryCard = (author === '익명') && /(?:영업\s*종료|영업\s*시작|곧\s*영업|체육관|음식점|전문점|카페|베이커리|\d+\(\d+\)\s*·\s*\$\$)/i.test(fullText);
+    if (isStoreDirectoryCard) {
+      if (logReason) {
+        console.log(`  [KR Review Filter ❌] 제외됨 (이유: 주변 장소/디렉토리 리스트 카드)`);
+        console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+      }
+      return false;
+    }
+
     // 구글 맵스 UI 시스템 키워드 제거 후 순수 본문(pureText) 생성
     const pureText = cleanReviewText(fullText, author);
 
@@ -586,11 +596,35 @@
     const seenKeys = new Set();
 
     try {
-      const mainPane = document.querySelector('[role="main"], #QA0Sfe, .m6QEdf');
-      const root = mainPane || document;
+      // 리뷰 카드(div.jftiEf, div[data-review-id])가 존재하는 '리뷰 전용 스크롤 DOM 컨테이너'만 정밀 타겟팅
+      let reviewContainer = null;
+      const sampleCard = document.querySelector('div.jftiEf, div[data-review-id]');
+      if (sampleCard) {
+        let curr = sampleCard.parentElement;
+        while (curr && curr !== document.body) {
+          if (curr.classList.contains('m6QEdf') || curr.getAttribute('role') === 'region' || curr.getAttribute('tabindex') === '-1') {
+            reviewContainer = curr;
+            break;
+          }
+          curr = curr.parentElement;
+        }
+      }
 
-      // 구글 맵스 개요(Overview) 및 리뷰(Reviews) 탭의 모든 리뷰 카드 컨테이너 선택자 포괄
-      const reviewCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id], div.My8ZBd, div.gWSYe, div.WMD5W, div.xiA35c, div.K7x0ed, div.hh25db, div.ffuGub, div.jANrZb, div.W3yE8c, [role="article"]'));
+      const root = reviewContainer || document.querySelector('[role="main"]') || document;
+
+      // 구글 맵스 순수 리뷰 카드 선택자 (jftiEf, data-review-id)
+      let rawCards = Array.from(root.querySelectorAll('div.jftiEf, div[data-review-id]'));
+
+      // Fallback: jftiEf 클래스가 탐지되지 않는 경계선 경우 대체 선택자 사용
+      if (rawCards.length === 0) {
+        rawCards = Array.from(root.querySelectorAll('div.WMD5W, div.xiA35c, [role="article"]'));
+      }
+
+      // 중첩 child 요소 제거 (상위 jftiEf 카드만 필터링하여 중복 파싱 차단)
+      const reviewCards = rawCards.filter(card => {
+        const parentCard = card.parentElement ? card.parentElement.closest('div.jftiEf, div[data-review-id]') : null;
+        return !parentCard;
+      });
 
       console.log(`[KR Reviews Diagnostics] DOM 내 리뷰 카드 후보 탐지: 총 ${reviewCards.length}개 발견`);
 
