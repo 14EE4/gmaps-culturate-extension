@@ -47,7 +47,7 @@ class GoogleMapsScraper:
         self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
         self.options.add_experimental_option("useAutomationExtension", False)
         
-        # Chrome 언어 설정 (URL 구조를 훼손하지 않고 원문을 수집하도록 보장)
+        # Chrome 언어 설정
         self.options.add_experimental_option("prefs", {
             "intl.accept_languages": f"{language},{language}_US,en,en_US,ko_KR"
         })
@@ -151,73 +151,104 @@ class GoogleMapsScraper:
         return place_name or "restaurant"
 
     def extract_total_reviews_info(self) -> tuple[str, int | None]:
-        """식당 전체 리뷰 수 문자열 및 수량(정수) 파싱"""
+        """식당 전체 리뷰 수 문자열 및 수량(정수) 파싱 (최대 6초 동적 재시도 대기)"""
         total_rev_count_str = ""
         total_available_num = None
         
         selectors = [
+            "div.jANrlb div.fontBodySmall",
+            "div.jANrlb",
+            "div.F72Y3c",
+            "span.F72Y3c",
+            "button[data-tab-index='1']",
             "span[role='img'][aria-label*='리뷰']",
             "span[role='img'][aria-label*='reviews']",
+            "button[aria-label*='리뷰']",
+            "button[aria-label*='reviews']",
+            "button.hh2ftd",
             "div.fontBodySmall",
             "span[aria-label*='리뷰']",
             "span[aria-label*='reviews']",
-            "button[data-tab-index='1']",
-            "span.ce3eFc",
-            "button[aria-label*='리뷰']",
-            "button[aria-label*='reviews']"
+            "span.ce3eFc"
         ]
-        try:
-            elems = self.driver.find_elements(By.CSS_SELECTOR, ", ".join(selectors))
-            for c in elems:
-                txt = (c.get_attribute("aria-label") or c.get_attribute("textContent") or c.text or "").strip()
-                if txt and ("리뷰" in txt or "개" in txt or "reviews" in txt.lower()):
-                    total_rev_count_str = txt
-                    break
-        except Exception:
-            pass
 
-        if total_rev_count_str:
-            num_clean = total_rev_count_str.replace(",", "")
-            match = re.search(r"(\d+(?:\.\d+)?)\s*(?:k|K|천)?", num_clean)
-            if match:
-                val = float(match.group(1))
-                if "k" in num_clean.lower() or "천" in num_clean:
-                    val *= 1000
-                total_available_num = int(val)
+        start_t = time.time()
+        while time.time() - start_t < 6:
+            try:
+                elems = self.driver.find_elements(By.CSS_SELECTOR, ", ".join(selectors))
+                for c in elems:
+                    try:
+                        is_in_card = self.driver.execute_script(
+                            "return !!arguments[0].closest('div.jJc9Ad, div.WNxzHc, div.RfnDt, button.al6Kxe, div.ffR21d');",
+                            c
+                        )
+                        if is_in_card:
+                            continue
+                    except Exception:
+                        pass
+
+                    target_texts = []
+                    try:
+                        children = c.find_elements(By.CSS_SELECTOR, "span, div, button")
+                        for child in children:
+                            t = (child.get_attribute("aria-label") or child.text or "").strip()
+                            if t and ("리뷰" in t or "reviews" in t.lower() or "개" in t):
+                                target_texts.append(t)
+                    except Exception:
+                        pass
+
+                    if not target_texts:
+                        raw_t = (c.get_attribute("aria-label") or c.get_attribute("textContent") or c.text or "").strip()
+                        if raw_t:
+                            target_texts.append(raw_t)
+
+                    for txt in target_texts:
+                        if txt and ("리뷰" in txt or "reviews" in txt.lower() or "개" in txt):
+                            # 1. K/천 단위 (2.8K reviews)
+                            m = re.search(r"([\d.]+)\s*(?:k|K|천)\s*(?:reviews|review|리뷰|개|건)?", txt, re.IGNORECASE)
+                            if m:
+                                total_available_num = int(float(m.group(1)) * 1000)
+                                total_rev_count_str = txt
+                                break
+
+                            # 2. 일반 숫자 단위 (2,863 reviews / 리뷰 3,814개)
+                            m = re.search(r"(\d{1,3}(?:,\d{3})+|\d+)\s*(?:reviews|review|리뷰|개|건)", txt, re.IGNORECASE)
+                            if not m:
+                                m = re.search(r"\(\s*(\d{1,3}(?:,\d{3})+|\d+)\s*\)", txt)
+
+                            if m:
+                                total_available_num = int(m.group(1).replace(",", ""))
+                                total_rev_count_str = txt
+                                break
+
+                    if total_available_num:
+                        break
+            except Exception:
+                pass
+
+            if total_available_num:
+                break
+
+            time.sleep(0.8)
 
         return total_rev_count_str, total_available_num
 
-    def scrape(self, url: str, max_reviews: int = 100) -> tuple[pd.DataFrame, str]:
-        target_url = url
-        if "!9m1!1b1" not in target_url and "data=" in target_url:
-            target_url = target_url.replace("data=", "data=!9m1!1b1")
+    def scrape(self, url: str, max_reviews: int = 100, pre_extracted_info: tuple = None) -> tuple[pd.DataFrame, str]:
+        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
 
-        if self.driver.current_url != target_url and target_url not in self.driver.current_url:
-            print(f"[+] Google Maps 접속 중: {target_url}")
-            self.driver.get(target_url)
-            
-            card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
-            try:
-                self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, card_selectors)))
-            except Exception:
-                pass
-                
-            time.sleep(1)
-            self.handle_consent_popups()
-        else:
-            card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
-
-        # 1. Place ID 추출
+        # 1. Place ID 및 식당 이름 추출
         place_id = self.extract_place_id(url)
         print(f"[+] Extracted Place ID: {place_id}")
 
-        # 2. 식당 이름 추출
         place_name = self.extract_place_name(url)
         print(f"[+] 식당 이름: {place_name}")
 
-        # 3. 전체 평점 및 리뷰 수 파싱
+        # 2. 전체 평점 및 총 리뷰 정보
         overall_rating = ""
-        total_reviews_count, total_available_num = self.extract_total_reviews_info()
+        if pre_extracted_info and pre_extracted_info[0]:
+            total_reviews_count, total_available_num = pre_extracted_info
+        else:
+            total_reviews_count, total_available_num = self.extract_total_reviews_info()
 
         try:
             rating_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontDisplayLarge, div.F72Y3c, span.ce3eFc, div.fontBodyMedium span[aria-hidden='true']")
@@ -240,15 +271,13 @@ class GoogleMapsScraper:
         else:
             print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {target_reviews}개)...")
 
-        # 4. 리뷰 탭 이동 (리뷰 카드가 미감지된 경우 탭/버튼 클릭 시도)
+        # 3. 리뷰 탭 이동 (리뷰 카드가 미감지된 경우)
         existing_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
         
         if len(existing_cards) > 0:
             print(f"[+] 이미 리뷰 페이지에 직접 접속되어 있습니다 (초기 감지 리뷰: {len(existing_cards)}개). 탭 클릭을 생략합니다.")
         else:
             print("[+] 리뷰 탭 상태 감지 및 이동 중...")
-            tab_clicked = False
-            
             click_candidates = self.driver.find_elements(By.CSS_SELECTOR, "button[role='tab'], button.hh2ftd, button[data-tab-index], button[aria-label*='reviews'], button[aria-label*='리뷰'], span.ce3eFc")
             for b in click_candidates:
                 try:
@@ -261,7 +290,6 @@ class GoogleMapsScraper:
                             continue
                         self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
                         self.driver.execute_script("arguments[0].click();", b)
-                        tab_clicked = True
                         clean_lbl = re.sub(r'[\uE000-\uF8FF]', '', txt or aria).strip()
                         print(f"[+] 리뷰 탭/버튼 클릭 완료 ({clean_lbl if clean_lbl else '리뷰 영역'})")
                         time.sleep(2.5)
@@ -269,24 +297,10 @@ class GoogleMapsScraper:
                 except Exception:
                     pass
 
-            # 4-2. 탭 클릭 미작동 시 리뷰 전용 파라미터(!9m1!1b1) 자동 URL 보정 후 재접속
-            existing_cards_after_click = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
-            if len(existing_cards_after_click) == 0:
-                if "!9m1!1b1" not in url and "data=" in url:
-                    print("[+] 리뷰 전용 파라미터(!9m1!1b1)로 URL 자동 보정 재접속 중...")
-                    direct_review_url = url.replace("data=", "data=!9m1!1b1")
-                    self.driver.get(direct_review_url)
-                    try:
-                        self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, card_selectors)))
-                    except Exception:
-                        pass
-                    time.sleep(1.5)
-
-        # 5. 리뷰 스크롤 컨테이너 감지
+        # 4. 스크롤 컨테이너 감지
         scrollable_div = None
         time.sleep(1)
 
-        # 5-1. 후보 컨테이너 탐색 (div.m6QEwb, div.DkB4fd 등)
         try:
             container_candidates = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEwb, div.DkB4fd, div.m6QEwb.DkB4fd, div.m6QEdf.D6fe2e, div.m6QEdf")
             for cand in container_candidates:
@@ -302,7 +316,6 @@ class GoogleMapsScraper:
         except Exception:
             pass
 
-        # 5-2. 카드 기준 부모 스크롤 컨테이너 탐색
         if not scrollable_div:
             cards_for_scroll = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
             if cards_for_scroll:
@@ -396,7 +409,7 @@ class GoogleMapsScraper:
                         if date_match:
                             date_str = date_match.group(1)
 
-                    # "원본 보기" (See original) 버튼 클릭 시도 (번역된 리뷰인 경우 원문 전환)
+                    # "원본 보기" (See original) 버튼 클릭 시도
                     try:
                         orig_btns = card.find_elements(By.CSS_SELECTOR, "button[aria-label*='원본'], button[aria-label*='original'], button.w8rJ2d")
                         for ob in orig_btns:
@@ -454,7 +467,7 @@ class GoogleMapsScraper:
                     print(f"[+] 목표 수량({target_reviews}개)에 도달하여 수집을 마칩니다.")
                 break
 
-            # 스크롤 내리기 (1. 마지막 카드를 스크롤 영역으로 끌어오기 + 2. 컨테이너 스크롤)
+            # 스크롤 내리기
             if review_cards:
                 try:
                     self.driver.execute_script("arguments[0].scrollIntoView(true);", review_cards[-1])
@@ -478,7 +491,7 @@ class GoogleMapsScraper:
 
             time.sleep(0.8)
 
-            # 더 이상 로딩할 리뷰가 없는지 판별 (소규모 식당 시 빠른 조기 멈춤)
+            # 더 이상 로딩할 리뷰가 없는지 판별
             current_card_count = len(review_cards)
             if current_card_count == last_card_count:
                 same_count_retries += 1
@@ -523,26 +536,21 @@ def main():
     start_time = time.time()
     
     try:
-        # 리뷰 뷰 URL 보정
         target_url = url
-        if "!9m1!1b1" not in target_url and "data=" in target_url:
-            target_url = target_url.replace("data=", "data=!9m1!1b1")
 
         print(f"[+] Google Maps 접속 중: {target_url}")
         scraper.driver.get(target_url)
         
         card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
         try:
-            scraper.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f"{card_selectors}, button[role='tab']")))
+            scraper.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f"{card_selectors}, button[role='tab'], div.jANrlb")))
         except Exception:
             pass
         time.sleep(1.5)
         scraper.handle_consent_popups()
 
         place_name = scraper.extract_place_name(url)
-        
-        # 전체 리뷰 수 정보 추출
-        total_rev_count_str, _ = scraper.extract_total_reviews_info()
+        total_rev_count_str, total_available_num = scraper.extract_total_reviews_info()
 
         if total_rev_count_str:
             print(f"[+] 식당 감지: {place_name} (구글 전체 리뷰: {total_rev_count_str})")
@@ -562,7 +570,7 @@ def main():
             else:
                 max_reviews = 4
 
-        df, place_name = scraper.scrape(url, max_reviews=max_reviews)
+        df, place_name = scraper.scrape(url, max_reviews=max_reviews, pre_extracted_info=(total_rev_count_str, total_available_num))
         elapsed_sec = time.time() - start_time
         
         safe_place_name = re.sub(r'[\\/*?:"<>|]', "", place_name).strip().replace(" ", "_")
