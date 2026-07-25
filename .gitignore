@@ -42,3 +42,7 @@ desktop.ini
 data/*.json
 !data/sample_places.json
 
+# Scraper output CSV files
+scraper/output/*.csv
+
+

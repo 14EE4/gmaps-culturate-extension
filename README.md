@@ -27,7 +27,10 @@
    - 장소 탐색 이동 시(예: Jimmy John's -> CAVA) URL 파라미터 내 **가장 마지막 `gmap_id` (현재 선택된 장소)**를 파싱하여 사이드바를 즉시 대상 장소로 자동 갱신
 10. **깜빡임 방지(Anti-Flickering) 최적화**:
     - 데이터 변경 검사(Deep Equal Check) 및 In-Place DOM 갱신으로 등장 애니메이션 재실행 차단
-11. **격리된 글래스모피즘 Shadow DOM UI**: 구글 맵스 기존 CSS와의 스타일 오염을 100% 차단한 독립 UI
+11. **사용자 맞춤 관심 취향 프로필 저장 및 사이드바 실시간 동적 연동**:
+    - 팝업 UI(`popup.html`)에서 일반 관심 항목(🍱 맛, 💁 서비스, 💰 가성비, ✨ 분위기, ⏳ 웨이팅, 🧹 위생, 🚗 주차) 체크박스 및 상대적 수치 취향 조절 전용 **슬라이더 바**(🌶️ 맵기 20~100%, 🧂 간/염도 20~100%, 🥩 양/푸짐함 20~100%) 세팅 및 `chrome.storage.local` 저장 (`userProfile`)
+    - `chrome.storage.onChanged` 동적 이벤트 감지를 적용하여 페이지 새로고침 없이 팝업 슬라이더/체크박스 변경 즉시 우측 사이드바 패널 상단 `🎯 사용자 맞춤 관심 취향` 영역에 분홍색/보라색 글래스모피즘 칩으로 실시간 연동 갱신
+12. **격리된 글래스모피즘 Shadow DOM UI**: 구글 맵스 기존 CSS와의 스타일 오염을 100% 차단한 독립 UI
 
 ---
 
@@ -35,6 +38,7 @@
 
 | 문서명 | 주요 내용 | 링크 |
 | :--- | :--- | :---: |
+| 🕷️ **scraper/README.md** | 구글 맵스 Place ID & 리뷰 자동 크롤러 실행, 수집 옵션 및 CSV 저장 규격 문서 | [바로가기](scraper/README.md) |
 | 🐍 **BACKEND_SETUP.md** | 백엔드 파이썬 가상환경(`.venv`) 설정, 패키지 설치, PowerShell 권한 & 실행 가이드 | [바로가기](BACKEND_SETUP.md) |
 | 📊 **DATA_SPEC.md** | 동적 다중 JSON 스캐너 스키마, `gmap_id` 규격, `.gitignore` 데이터 관리 가이드 | [바로가기](DATA_SPEC.md) |
 | 🛠️ **TROUBLESHOOTING.md** | 개발 중 발생한 문제 해결 이력 (DOM 평점/리뷰 파싱, 깜빡임 방지, SPA URL 감지 등) | [바로가기](TROUBLESHOOTING.md) |
@@ -72,6 +76,12 @@ gmaps-culturate-extension/  (최상위 루트)
 │   ├── popup.js           # 팝업 설정 컨트롤러
 │   └── background.js      # Service Worker
 │
+├── scraper/               # 🕷️ 구글 맵스 Place ID & 리뷰 자동 크롤링 모듈
+│   ├── README.md          # 크롤러 안내 및 사용 설명 문서
+│   ├── main.py            # Selenium 기반 크롤러 메인 스크립트
+│   ├── requirements.txt   # 스크레이퍼 의존성 목록
+│   └── output/            # 수집된 UTF-8-SIG CSV 데이터 저장 폴더
+│
 ├── backend/               # 🐍 FastAPI 백엔드 & ML 서버
 │   ├── main.py            # FastAPI 라우터 서버 (gmap_id API 엔드포인트)
 │   ├── database.py        # 동적 다중 JSON 데이터베이스 모듈 (data/*.json 스캔 & 병합)
@@ -80,7 +90,7 @@ gmaps-culturate-extension/  (최상위 루트)
 ├── data/                  # 📊 ⭐️ 최상위 루트의 원본 데이터 폴더 (data/*.json 자동 스캔)
 │   └── sample_places.json # 장소별 보정 리뷰 기본 샘플 JSON
 │
-├── .gitignore             # Python/OS/IDE 캐시 및 data/*.json 대용량 파일 제외 설정
+├── .gitignore             # Python/OS/IDE 캐시 및 data/*.json, scraper/output/*.csv 제외 설정
 ├── BACKEND_SETUP.md       # 백엔드 가상환경 및 실행 가이드 문서
 ├── DATA_SPEC.md           # 데이터 스키마 및 신규 장소 추가 가이드
 ├── TROUBLESHOOTING.md     # 주요 오류 발생 및 해결 이력 트러블슈팅 문서
