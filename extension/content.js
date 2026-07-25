@@ -467,10 +467,6 @@
 
     let pureText = rawText.replace(/\u00A0/g, ' ');
 
-    // 0. 하단 액션 블록 (\n\n1\n\n공유, \n\n공유, \n\n좋아요 등) 출현 시 해당 위치부터 전면 절단
-    const footerCutoffRegex = /\n+[\s\u00A0]*\d*[\s\u00A0]*(?:공유|좋아요|Share|Like)\b[\s\S]*/i;
-    pureText = pureText.replace(footerCutoffRegex, '');
-
     if (author && author !== '익명') {
       pureText = pureText.replace(author, '');
     }
@@ -484,28 +480,33 @@
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-    // 2. UI 버튼, 설문/폼 항목 (식사 유형, 점심 식사, 주문 유형, 대기 시간 등) 절단 (Cut-off)
+    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유, \n\n좋아요\n\n공유, \n\n공유 등) 전면 절단
+    const footerCutoffRegex = /\n+[\s\u00A0]*(?:좋아요\s+)?(?:\d+\s+)?(?:공유|Share)\b[\s\S]*/i;
+    pureText = pureText.replace(footerCutoffRegex, '');
+
+    // 3. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 점심 식사, 대기 시간 등) 절단 (Cut-off)
     const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:)/i;
 
     if (uiCutoffRegex.test(pureText)) {
       pureText = pureText.split(uiCutoffRegex)[0];
     }
 
-    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
+    // 4. 줄바꿈 및 연속 공백 정돈 (모든 줄바꿈을 공백으로 통일)
     pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 4. 잔여 서비스/설문 옵션 키워드, 미디어 타임스탬프 및 문장 끝 단독 숫자 찌꺼기 제거
+    // 5. 문장 끝단 잔여 키워드 및 단독 숫자 찌꺼기 2중 제거
     pureText = pureText
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
+      .replace(/\b(?:좋아요|공유|Like|Share)\b/gi, '')
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
       .replace(/\s+\d+\s*$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
-    // 5. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
+    // 6. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
     if (!pureText || !/[a-zA-Z\uAC00-\uD7A3]/.test(pureText)) {
       pureText = '';
     }
