@@ -26,7 +26,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class GoogleMapsScraper:
-    def __init__(self, headless=False, language="ko"):
+    def __init__(self, headless=False, language="en"):
         self.language = language
         self.options = Options()
         
@@ -56,7 +56,7 @@ class GoogleMapsScraper:
         try:
             buttons = self.driver.find_elements(
                 By.XPATH, 
-                "//button[contains(text(), '모두 수락') or contains(text(), 'Accept all') or contains(text(), '동의')]"
+                "//button[contains(text(), '모두 수락') or contains(text(), 'Accept all') or contains(text(), '동의') or contains(text(), 'Accept')]"
             )
             for btn in buttons:
                 if btn.is_displayed():
@@ -87,13 +87,12 @@ class GoogleMapsScraper:
         return "UNKNOWN_PLACE_ID"
 
     def format_url(self, url: str) -> str:
-        """URL에 hl=ko 파라미터를 보장하여 한국어로 구글 맵스 로드"""
-        if "hl=" not in url:
-            if "?" in url:
-                return f"{url}&hl={self.language}"
-            else:
-                return f"{url}?hl={self.language}"
-        return url
+        """URL의 기존 모든 hl=... 파라미터를 제거하고 원문 보장 언어(hl=en)로 재설정"""
+        clean_url = re.sub(r"([?&])hl=[^&]*&?", r"\1", url).rstrip("?&")
+        if "?" in clean_url:
+            return f"{clean_url}&hl={self.language}"
+        else:
+            return f"{clean_url}?hl={self.language}"
 
     def extract_place_name_from_url(self, url: str) -> str:
         """URL 경로(/place/식당이름/)에서 식당 이름 디코딩 및 추출"""
@@ -156,7 +155,7 @@ class GoogleMapsScraper:
 
     def scrape(self, url: str, max_reviews: int = 100) -> tuple[pd.DataFrame, str]:
         formatted_url = self.format_url(url)
-        print(f"[+] Google Maps 접속 중: {formatted_url}")
+        print(f"[+] Google Maps 접속 중 (원문 보장 모드 hl={self.language}): {formatted_url}")
         self.driver.get(formatted_url)
         
         try:
@@ -189,7 +188,7 @@ class GoogleMapsScraper:
             pass
 
         try:
-            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], button[data-tab-index='1'], span[aria-label*='reviews']")
+            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], span[aria-label*='reviews'], button[data-tab-index='1']")
             for c in review_cnt_elems:
                 txt = (c.get_attribute("textContent") or c.text or "").strip()
                 if txt and ("리뷰" in txt or "개" in txt or "reviews" in txt.lower()):
@@ -338,11 +337,23 @@ class GoogleMapsScraper:
                         pass
 
                     if not date_str:
-                        date_match = re.search(r"(\d+\s*(?:개월|년|일|주|분|시간)\s*전)", card_text)
+                        date_match = re.search(r"(\d+\s*(?:개월|년|일|주|분|시간|month|year|day|week|hour|minute|s)\s*(?:전|ago)?)", card_text, re.IGNORECASE)
                         if date_match:
                             date_str = date_match.group(1)
 
-                    # 리뷰 원문 추출 (textContent 기반 100% 완전 파싱)
+                    # "원본 보기" (See original) 버튼 클릭 시도 (번역된 리뷰인 경우 원문 전환)
+                    try:
+                        orig_btns = card.find_elements(By.CSS_SELECTOR, "button[aria-label*='원본'], button[aria-label*='original'], button.w8rJ2d")
+                        for ob in orig_btns:
+                            ob_text = (ob.get_attribute("textContent") or ob.text or "").strip()
+                            if "원본" in ob_text or "original" in ob_text.lower():
+                                self.driver.execute_script("arguments[0].click();", ob)
+                                time.sleep(0.3)
+                                break
+                    except Exception:
+                        pass
+
+                    # 리뷰 원문 추출
                     review_text = ""
                     try:
                         text_spans = card.find_elements(By.CSS_SELECTOR, "span.wiI7pd, span.wi80bf, div.My5Wv, .My5Wv")
@@ -350,10 +361,12 @@ class GoogleMapsScraper:
                             t_txt = (s.get_attribute("textContent") or s.get_attribute("innerText") or s.text or "").strip()
                             t_txt = re.sub(r"\(Google 제공 번역\)\s*", "", t_txt)
                             t_txt = re.sub(r"\(원본\)\s*", "", t_txt)
+                            t_txt = re.sub(r"\(Translated by Google\)\s*", "", t_txt)
+                            t_txt = re.sub(r"\(Original\)\s*", "", t_txt)
                             t_txt = re.sub(r"Google 제공 번역\s*・\s*원본 보기\(.*?\)", "", t_txt)
                             t_txt = t_txt.strip()
 
-                            if t_txt and not t_txt.startswith("Google 제공 번역") and t_txt not in ["공유", "좋아요", "수정", "답글", "원본 보기", "자세히 보기"]:
+                            if t_txt and not t_txt.startswith("Google 제공 번역") and not t_txt.startswith("Translated by Google") and t_txt not in ["공유", "좋아요", "수정", "답글", "원본 보기", "자세히 보기", "Share", "Like"]:
                                 review_text = t_txt
                                 break
                     except Exception:
@@ -416,6 +429,7 @@ def main():
     parser = argparse.ArgumentParser(description="구글 맵스 Place ID 및 리뷰 자동 수집 스크레이퍼")
     parser.add_argument("--url", type=str, help="구글 맵스 식당 URL")
     parser.add_argument("--max-reviews", type=int, default=100, help="수집할 최대 리뷰 수 (기본값: 100)")
+    parser.add_argument("--lang", type=str, default="en", help="구글 맵스 수집 언어 (기본값: en - 원문 수집 보장)")
     parser.add_argument("--headless", action="store_true", help="헤드리스 모드로 실행")
     
     args = parser.parse_args()
@@ -428,7 +442,7 @@ def main():
         print("[!] URL이 입력되지 않았습니다. 종료합니다.")
         sys.exit(1)
 
-    scraper = GoogleMapsScraper(headless=args.headless)
+    scraper = GoogleMapsScraper(headless=args.headless, language=args.lang)
     
     try:
         df, place_name = scraper.scrape(url, max_reviews=args.max_reviews)
