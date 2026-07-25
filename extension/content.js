@@ -193,11 +193,13 @@
       cultureSummary = `${resolved.category} is ${resolved.rel_gap >= 0 ? '+' : ''}${resolved.rel_gap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${googleRating.toFixed(1)} → Adjusted ★${resolved.corrected.toFixed(2)}.`;
       statusBadge = 'Category Level Adjustment';
     } else if (resolved.tier === 'category_ns') {
-      cultureSummary = `For ${resolved.category}, no significant rating difference was found between Korean and English reviews.`;
-      statusBadge = 'No Category Difference';
+      koreanRating = null;
+      cultureSummary = `For ${resolved.category}, no statistically significant rating difference was found between Korean and English reviews.`;
+      statusBadge = 'No Category Rating Gap';
     } else {
-      cultureSummary = payloadItem?.s || '[Payload Unavailable] No past 2021 dataset analysis available for this location.';
-      statusBadge = 'No Past Data';
+      koreanRating = null;
+      cultureSummary = payloadItem?.s || 'No past dataset rating analysis available for this location.';
+      statusBadge = 'No Analysis Data Available';
     }
 
     if (payloadItem?.s && resolved.tier !== 'measured') {
@@ -220,178 +222,22 @@
       status_badge: statusBadge,
       index_entry: indexEntry,
       metrics: {
-        taste: { local: (localRating + 0.1).toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '3.8' },
-        service: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.2).toFixed(1) : '3.5' },
-        value: { local: (localRating - 0.1).toFixed(1), kr: koreanRating ? (koreanRating - 0.3).toFixed(1) : '3.4' },
-        atmosphere: { local: (localRating + 0.2).toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '4.2' }
+        taste: { local: localRating.toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '-' },
+        service: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.2).toFixed(1) : '-' },
+        value: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.3).toFixed(1) : '-' },
+        atmosphere: { local: localRating.toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '-' }
       },
       nuance_tags: [
         {
           tag_id: 1,
           literal: statusBadge || '💬 Cultural Review Analysis',
-          meaning: cultureSummary + (!hasPayload ? ' (Note: Payload text missing for this place)' : '')
+          meaning: cultureSummary
         }
       ]
     };
   }
 
-  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
-  const MOCK_DATASET = {
-    // CAVA (USC Village LA) - Main Test Sample
-    '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
-      gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
-      place_name: 'CAVA (USC Village)',
-      address: '3201 S Hoover St Suite 1840, Los Angeles, CA 90089',
-      category: 'Mediterranean restaurant, Salad shop, Fast casual',
-      local_rating: 4.4,
-      korean_rating: 3.8,
-      kr_avg: 3.8,
-      kr_count: 15,
-      culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
-      metrics: {
-        taste: { local: 4.5, kr: 3.8 },
-        service: { local: 4.2, kr: 3.9 },
-        value: { local: 4.1, kr: 3.5 },
-        atmosphere: { local: 4.4, kr: 4.2 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Fully customizable fresh Mediterranean bowl"',
-          meaning: '서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Pita chips and Crazy Feta are top tier"',
-          meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
-        },
-        {
-          tag_id: 3,
-          literal: '"Super fast line even when crowded"',
-          meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
-        }
-      ]
-    },
 
-    // LA Sun Nong Dan (선농단 K-Town)
-    '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3': {
-      gmap_id: '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3',
-      place_name: 'Sun Nong Dan (선농단 LA)',
-      address: '3470 W 6th St #7, Los Angeles, CA 90020',
-      category: 'Korean restaurant, Galbi-jjim, Soup',
-      local_rating: 4.6,
-      korean_rating: 4.4,
-      kr_avg: 4.4,
-      kr_count: 22,
-      culture_summary: '갈비찜과 치즈 사리의 높은 완성도. 현지인과 한국인 모두 최상위 평가이나 극심한 대기 시간과 주차 난이도에 엄격함.',
-      metrics: {
-        taste: { local: 4.8, kr: 4.7 },
-        service: { local: 4.3, kr: 3.8 },
-        value: { local: 4.2, kr: 3.9 },
-        atmosphere: { local: 4.1, kr: 3.6 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Portions are huge, order for groups"',
-          meaning: '치즈 갈비찜 소자도 2-3인용. 양이 매우 많아 가성비 양호함.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Waited 45 mins, staff is super rushed"',
-          meaning: '회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함.'
-        }
-      ]
-    },
-
-    // LA BCD Tofu House (북창동순두부 Wilshire)
-    '0x80c2c7c594236e71:0x5e2b036577317ba9': {
-      gmap_id: '0x80c2c7c594236e71:0x5e2b036577317ba9',
-      place_name: 'BCD Tofu House (북창동순두부)',
-      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
-      category: 'Korean restaurant, Tofu house, Korean BBQ',
-      local_rating: 4.5,
-      korean_rating: 3.9,
-      kr_avg: 3.9,
-      kr_count: 18,
-      culture_summary: '외국인에게는 표준 K-Food 기준점이나, 한국인 기준으로는 본국 순두부 전문점 대비 깊은 국물 맛이 다소 아쉽고 과도한 팁이 부담됨.',
-      metrics: {
-        taste: { local: 4.6, kr: 3.9 },
-        service: { local: 4.4, kr: 3.8 },
-        value: { local: 4.2, kr: 3.4 },
-        atmosphere: { local: 4.3, kr: 4.0 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Authentic Korean comfort food"',
-          meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
-        }
-      ]
-    },
-
-    // LA BCD Tofu House (북창동 순두부 LA) - User Requested URL
-    '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
-      gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
-      place_name: '북창동 순두부 (BCD Tofu House LA)',
-      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
-      category: 'Korean restaurant, Soft Tofu stew',
-      local_rating: 4.5,
-      korean_rating: 4.0,
-      kr_avg: 4.0,
-      kr_count: 20,
-      culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
-      metrics: {
-        taste: { local: 4.6, kr: 4.0 },
-        service: { local: 4.3, kr: 3.8 },
-        value: { local: 4.1, kr: 3.5 },
-        atmosphere: { local: 4.4, kr: 4.0 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Best BCD Tofu in K-Town LA"',
-          meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Authentic Korean spicy tofu stew"',
-          meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
-        }
-      ]
-    },
-
-    // Peter Luger Steak House NY
-    '0x89c259837920ab4d:0xcf20c1507df05e54': {
-      gmap_id: '0x89c259837920ab4d:0xcf20c1507df05e54',
-      place_name: 'Peter Luger Steak House',
-      address: '178 Broadway, Brooklyn, NY 11211',
-      category: 'Steak house, American restaurant',
-      local_rating: 4.4,
-      korean_rating: 3.7,
-      kr_avg: 3.7,
-      kr_count: 12,
-      culture_summary: '역사적인 드라이에이징 스테이크 전문점. 구글 평점은 높으나 Cash Only(현금 결제 전용) 및 고압적인 서비스로 한국인 가성비 평가 하락.',
-      metrics: {
-        taste: { local: 4.7, kr: 4.2 },
-        service: { local: 4.1, kr: 2.9 },
-        value: { local: 3.9, kr: 3.1 },
-        atmosphere: { local: 4.5, kr: 4.1 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Classic waiter service with Brooklyn attitude"',
-          meaning: '친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Cash or debit only, be prepared!"',
-          meaning: '신용카드 불가로 현금 미소지 시 큰 불편 유발.'
-        }
-      ]
-    }
-  };
 
   /**
    * 1. 사전 분석 데이터 구조의 가변성 대응 (Adapter Pattern)
@@ -1176,7 +1022,7 @@
       } else if (resolved.tier === 'category_ns') {
         console.log(`[GMap Review Decoder] ℹ️ [Tier 2 Category (No Significant Diff)] category: "${resolved.category}"`);
       } else {
-        console.log(`[GMap Review Decoder] ⚠️ [Tier 3 No Dataset Match / Fallback] gmap_id: ${gmapId}`);
+        console.log(`[GMap Review Decoder] 🚫 [Tier 3 No Past Data Available] gmap_id: ${gmapId}`);
       }
 
       if (mvpPayload && mvpPayload[gmapId]) {
@@ -1185,10 +1031,8 @@
         console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No s text in mvp_payload.json for gmap_id: ${gmapId}`);
       }
 
-      if (resolved.tier !== 'none' || (mvpPayload && mvpPayload[gmapId])) {
-        const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
-        return { data: analysisData, isMock: false };
-      }
+      const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
+      return { data: analysisData, isMock: false };
     }
 
     // 2. FastAPI backend fallback (if running)
@@ -1208,70 +1052,16 @@
         return { data, isMock: false };
       }
     } catch (e) {
-      console.log('[GMap Review Decoder] FastAPI backend disconnected. Using dataset engine.');
+      console.log('[GMap Review Decoder] FastAPI backend disconnected.');
     }
 
-    // 3. Built-in Mock Dataset fallback
-    if (gmapId && MOCK_DATASET[gmapId]) {
-      const cloned = JSON.parse(JSON.stringify(MOCK_DATASET[gmapId]));
-      cloned.hasKoreanData = true;
-      return { data: cloned, isMock: true };
-    }
-
-    return { data: generateMockData(gmapId, placeName), isMock: true };
+    // Fallback: Dataset resolution (No Mock Data)
+    const fallbackResolved = resolve(gmapId, googleRating);
+    const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
+    return { data: fallbackData, isMock: false };
   }
 
-  /**
-   * Dynamic Mock Data Generator
-   */
-  function generateMockData(gmapId, placeName) {
-    // 1. UCSD Dataset Key에 일치하는 사전 데이터가 있을 경우 반환
-    if (gmapId && MOCK_DATASET[gmapId]) {
-      const cloned = JSON.parse(JSON.stringify(MOCK_DATASET[gmapId]));
-      cloned.hasKoreanData = true;
-      return cloned;
-    }
 
-    // 2. 동적 Mock 생성 (미등록 장소의 경우 임의 보정 수치 대신 '데이터 없음' 상태 반환)
-    const displayName = placeName || (gmapId ? `장소 (${gmapId.substring(0, 10)}...)` : '선택된 장소');
-    const hash = simpleHash(displayName + (gmapId || ''));
-    const localRating = (4.0 + (hash % 10) / 10).toFixed(1);
-
-    return {
-      gmap_id: gmapId || `0x${hash.toString(16)}:0x${(hash * 31).toString(16)}`,
-      place_name: displayName,
-      address: 'Google Maps Location',
-      category: 'Restaurant, Point of Interest',
-      local_rating: parseFloat(localRating),
-      korean_rating: null,
-      kr_avg: null,
-      kr_count: 0,
-      hasKoreanData: false,
-      culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
-      metrics: {
-        taste: { local: (4.2 + (hash % 6) / 10).toFixed(1), kr: '3.8' },
-        service: { local: (4.0 + (hash % 5) / 10).toFixed(1), kr: '3.5' },
-        value: { local: (4.1 + (hash % 7) / 10).toFixed(1), kr: '3.4' },
-        atmosphere: { local: 4.5, kr: 4.2 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '💬 한국인 리뷰 미감지 장소',
-          meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
-        }
-      ]
-    };
-  }
-
-  function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash);
-  }
 
   /**
    * 3. Shadow DOM 초기화 및 사이드바 UI 렌더링
