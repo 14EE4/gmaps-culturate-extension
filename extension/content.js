@@ -465,6 +465,8 @@
   function cleanReviewText(rawText, author = '') {
     if (!rawText) return '';
 
+    console.log(`[cleanReviewText] 🧼 세탁 시작 - 입력 원본:`, JSON.stringify(rawText));
+
     let pureText = rawText.replace(/\u00A0/g, ' ');
 
     if (author && author !== '익명') {
@@ -479,34 +481,45 @@
       .replace(/지역 가이드\s*·\s*리뷰\s*\d+개(\s*·\s*사진\s*\d+장)?/gi, '')
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
+    console.log(`[cleanReviewText]   ├ Step 1 (헤더/작성일 제거 후):`, JSON.stringify(pureText));
 
-    // 2. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 대기 시간 등) 절단 (Cut-off)
+    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유 -,  1  공유 -, 좋아요, 공유 등) 전면 절단
+    // 주의: 한글 단어(공유, 좋아요) 뒤에는 \b 가 동작하지 않으므로 (?![가-힣a-zA-Z]) 사용
+    pureText = pureText
+      .replace(/(?:\r?\n+|\s+|[\uE000-\uF8FF\u2600-\u27BF\uE800-\uE8FF\uEA00-\uEAFF])*(?:|)?\s*(?:\d+\s*)?(?:좋아요\s+)?(?:\d+\s*)?(?:공유|Share)(?![가-힣a-zA-Z])[\s\S]*$/i, '')
+      .replace(/(?:\r?\n+|\s+|[\uE000-\uF8FF\u2600-\u27BF\uE800-\uE8FF\uEA00-\uEAFF])*(?:|)?\s*(?:좋아요|Like)(?![가-힣a-zA-Z])[\s\S]*$/i, '');
+    console.log(`[cleanReviewText]   ├ Step 2 (하단 액션버튼 절단 후):`, JSON.stringify(pureText));
+
+    // 3. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 대기 시간 등) 절단 (Cut-off)
     const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:)/i;
 
     if (uiCutoffRegex.test(pureText)) {
       pureText = pureText.split(uiCutoffRegex)[0];
     }
+    console.log(`[cleanReviewText]   ├ Step 3 (UI 버튼/폼 절단 후):`, JSON.stringify(pureText));
 
-    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
+    // 4. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
     pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 4. 문장 끝단 잔여 키워드 및 단독 숫자 찌꺼기 2중 제거 (Fallback 안전 장치)
+    // 5. 문장 끝단 잔여 키워드, 특수문자, 대시(-) 및 단독 숫자 찌꺼기 2중 제거
     pureText = pureText
-      .replace(/(?:\r?\n+|\s+)(?:좋아요\s+)?(?:\d+\s+)?(?:공유|Share)\s*$/i, '')
-      .replace(/(?:\r?\n+|\s+)(?:좋아요|Like)\s*$/i, '')
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
+      .replace(/[\s\-\u2010-\u2015\uE000-\uF8FF\u2600-\u27BF]+$/g, '')
       .replace(/\s+\d+\s*$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+    console.log(`[cleanReviewText]   ├ Step 5 (잔여 찌꺼기/대시 제거 후):`, JSON.stringify(pureText));
 
-    // 5. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
+    // 6. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
     if (!pureText || !/[a-zA-Z\uAC00-\uD7A3]/.test(pureText)) {
       pureText = '';
     }
+
+    console.log(`[cleanReviewText] ✨ 세탁 완료 - 최종 결과:`, JSON.stringify(pureText));
 
     return pureText;
   }
