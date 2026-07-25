@@ -188,6 +188,44 @@
     .save-btn:active {
       transform: translateY(0);
     }
+    .aspects-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .aspect-checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: #cbd5e1;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    .aspect-checkbox-label:hover {
+      border-color: var(--primary-color);
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    .aspect-checkbox-label input[type="checkbox"] {
+      accent-color: var(--primary-color);
+      width: 13px;
+      height: 13px;
+      cursor: pointer;
+    }
+
+    .aspect-checkbox-label input[type="checkbox"]:checked + span {
+      color: #ffffff;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -214,6 +252,32 @@
       <option value="Japanese">🇯🇵 일본인 (JP)</option>
       <option value="American">🇺🇸 미국인 (US)</option>
     </select>
+  </div>
+
+  <div class="form-group">
+    <label>🎯 사용자 관심 취향 항목 (프로필)</label>
+    <div class="aspects-grid">
+      <label class="aspect-checkbox-label">
+        <input type="checkbox" class="aspect-checkbox" value="맛" checked>
+        <span>🍱 맛</span>
+      </label>
+      <label class="aspect-checkbox-label">
+        <input type="checkbox" class="aspect-checkbox" value="서비스">
+        <span>💁 서비스</span>
+      </label>
+      <label class="aspect-checkbox-label">
+        <input type="checkbox" class="aspect-checkbox" value="가성비" checked>
+        <span>💰 가성비</span>
+      </label>
+      <label class="aspect-checkbox-label">
+        <input type="checkbox" class="aspect-checkbox" value="분위기">
+        <span>✨ 분위기</span>
+      </label>
+      <label class="aspect-checkbox-label">
+        <input type="checkbox" class="aspect-checkbox" value="웨이팅" checked>
+        <span>⏳ 웨이팅</span>
+      </label>
+    </div>
   </div>
 
   <div class="form-group">

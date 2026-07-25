@@ -7,27 +7,44 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectCulture = document.getElementById('select-culture');
   const inputBackend = document.getElementById('input-backend');
   const btnSave = document.getElementById('btn-save');
+  const aspectCheckboxes = document.querySelectorAll('.aspect-checkbox');
 
   // Load existing settings
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'backendUrl'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'targetCulture', 'backendUrl', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) toggleEnabled.checked = res.isEnabled;
       if (res.targetCulture) selectCulture.value = res.targetCulture;
       if (res.backendUrl) inputBackend.value = res.backendUrl;
+
+      // Restore userProfile preferredAspects
+      if (res.userProfile && Array.isArray(res.userProfile.preferredAspects)) {
+        aspectCheckboxes.forEach((cb) => {
+          cb.checked = res.userProfile.preferredAspects.includes(cb.value);
+        });
+      }
     });
   }
 
-  // Save settings
-  btnSave.addEventListener('click', () => {
+  // Helper function to save current state
+  const savePreferences = () => {
     const isEnabled = toggleEnabled.checked;
     const targetCulture = selectCulture.value;
     const backendUrl = inputBackend.value.trim() || 'http://localhost:8000';
+    const preferredAspects = Array.from(aspectCheckboxes)
+      .filter((cb) => cb.checked)
+      .map((cb) => cb.value);
+
+    const userProfile = {
+      targetCulture: targetCulture === 'Korean' ? 'KR' : (targetCulture === 'Japanese' ? 'JP' : 'US'),
+      preferredAspects
+    };
 
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({
         isEnabled,
         targetCulture,
-        backendUrl
+        backendUrl,
+        userProfile
       }, () => {
         btnSave.textContent = '저장 완료! ✓';
         btnSave.style.background = '#22c55e';
@@ -37,5 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
       });
     }
+  };
+
+  // Save settings on button click
+  btnSave.addEventListener('click', savePreferences);
+
+  // Instant save on aspect checkbox toggles
+  aspectCheckboxes.forEach((cb) => {
+    cb.addEventListener('change', savePreferences);
   });
 });
+

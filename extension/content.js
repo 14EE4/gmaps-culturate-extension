@@ -11,6 +11,7 @@
   let currentPlaceName = null;
   let isEnabled = true;
   let targetCulture = 'Korean';
+  let userProfile = { targetCulture: 'KR', preferredAspects: [] };
   let observer = null;
   let debounceTimer = null;
   let shadowHost = null;
@@ -1046,6 +1047,15 @@
     const deltaClass = delta >= 0 ? 'delta-up' : 'delta-down';
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
+    const aspectEmojiMap = {
+      '맛': '🍱 맛',
+      '서비스': '💁 서비스',
+      '가성비': '💰 가성비',
+      '분위기': '✨ 분위기',
+      '웨이팅': '⏳ 웨이팅'
+    };
+    const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
+
     // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
     const existingSidebar = rootEl.querySelector('#gmap-decoder-sidebar');
     const isUpdate = !!existingSidebar;
@@ -1078,6 +1088,18 @@
             </div>
             ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
           </div>
+
+          <!-- User Preferences Highlight -->
+          ${preferredList.length > 0 ? `
+            <div class="user-preferences-box">
+              <div class="preferences-title">🎯 사용자 맞춤 관심 취향</div>
+              <div class="pref-tags-list">
+                ${preferredList.map(aspect => `
+                  <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
 
           <!-- Dual Rating System Badges -->
           <div class="ratings-container">
@@ -1404,15 +1426,18 @@
 
   // Load User Preferences from Storage
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'targetCulture', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) isEnabled = res.isEnabled;
       if (res.targetCulture) targetCulture = res.targetCulture;
+      if (res.userProfile) userProfile = res.userProfile;
       startMonitoring();
     });
 
     chrome.storage.onChanged.addListener((changes) => {
       if (changes.isEnabled) isEnabled = changes.isEnabled.newValue;
       if (changes.targetCulture) targetCulture = changes.targetCulture.newValue;
+      if (changes.userProfile) userProfile = changes.userProfile.newValue;
+
       if (isEnabled) {
         processPlaceDetection(true);
       } else {
