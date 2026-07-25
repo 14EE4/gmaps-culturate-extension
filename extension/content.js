@@ -201,6 +201,7 @@
 
     return {
       gmap_id: gmapId,
+      resolved: resolved,
       place_name: placeName || (resolved.entry?.name) || 'Selected Place',
       address: 'Google Maps Location',
       category: resolved.category || resolved.entry?.category || indexEntry?.c || 'Point of Interest',
@@ -969,15 +970,23 @@
       const oldLocal = data.local_rating;
       data.local_rating = rawRating;
 
-      // 한국인 보정 데이터가 존재하는 경우에만 평점 재계산
-      if (typeof data.korean_rating === 'number' && !isNaN(data.korean_rating)) {
+      // v2 resolved 규칙 기반 정확한 보정 평점 재계산
+      if (data.resolved) {
+        if (data.resolved.tier === 'measured') {
+          data.korean_rating = data.resolved.entry.ko_mean;
+        } else if (data.resolved.tier === 'category') {
+          data.korean_rating = clamp(rawRating + data.resolved.rel_gap, 0, 5);
+          const dir = data.resolved.rel_gap >= 0 ? 'less deducted' : 'more deducted';
+          data.culture_summary = `${data.resolved.category} is ${data.resolved.rel_gap >= 0 ? '+' : ''}${data.resolved.rel_gap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${rawRating.toFixed(1)} → Adjusted ★${data.korean_rating.toFixed(2)}.`;
+        }
+      } else if (typeof data.korean_rating === 'number' && !isNaN(data.korean_rating)) {
         let delta = data.korean_rating - oldLocal;
         const calculatedKr = Math.max(1.0, Math.min(5.0, rawRating + delta));
         data.korean_rating = parseFloat(calculatedKr.toFixed(1));
       }
 
       data.isDOMParsed = true;
-      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal})`);
+      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal}), KR Adjusted: ${data.korean_rating}`);
       return true;
     }
     return false;
@@ -1602,17 +1611,22 @@
 
     // 이미 처리된 장소인 경우에도, DOM 평점 및 한국어 리뷰가 뒤늦게 표시되었는지 동적 파싱
     if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
-      applyDOMRating(currentAnalysisData);
+      const isRatingUpdated = applyDOMRating(currentAnalysisData);
       extractNativeKoreanReviewsFromDOM();
 
       // 장소 이름이 처음에 '장소 (0x...)' Fallback으로 생성되었다면 새로 감지된 장소명으로 업데이트
-      if (currentAnalysisData.place_name && currentAnalysisData.place_name.startsWith('장소 (')) {
+      let isNameUpdated = false;
+      if (currentAnalysisData.place_name && (currentAnalysisData.place_name.startsWith('장소 (') || currentAnalysisData.place_name.startsWith('Selected Place ('))) {
         const freshPlaceName = extractPlaceNameFromDOM();
-        if (freshPlaceName && !freshPlaceName.startsWith('장소 (')) {
+        if (freshPlaceName && !freshPlaceName.startsWith('장소 (') && !freshPlaceName.startsWith('Selected Place (')) {
           currentAnalysisData.place_name = freshPlaceName;
           currentPlaceName = freshPlaceName;
-          renderSidebar(currentAnalysisData, currentIsMock);
+          isNameUpdated = true;
         }
+      }
+
+      if (isRatingUpdated || isNameUpdated) {
+        renderSidebar(currentAnalysisData, currentIsMock);
       }
       return;
     }
