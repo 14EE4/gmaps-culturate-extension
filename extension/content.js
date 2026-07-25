@@ -734,9 +734,9 @@
           currentAnalysisData.isRealKoreanReviewsReflected = true;
 
           if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `사전 데이터 ${combined.pastKrCount}건(★ ${combined.pastKrRating})과 실시간 추출 리뷰 ${combined.liveKrCount}건(★ ${combined.liveKrRating})이 가중 통합된 평균 평점(★ ${combined.combinedRating})입니다.`;
+            currentAnalysisData.culture_summary = `Weighted average combining ${combined.pastKrCount} past reviews (★ ${combined.pastKrRating}) and ${combined.liveKrCount} live-extracted reviews (★ ${combined.liveKrRating}) → combined score ★ ${combined.combinedRating}.`;
           } else if (combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${combined.liveKrCount}건의 평점 평균(★ ${combined.combinedRating})이 반영되었습니다.`;
+            currentAnalysisData.culture_summary = `Live-extracted native Korean reviews: ${combined.liveKrCount} reviews averaged at ★ ${combined.combinedRating}.`;
           }
         }
 
@@ -918,13 +918,13 @@
 
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
+        btnElement.innerHTML = btnElement.dataset.originalText || '📥 Load More';
       }
     } catch (err) {
-      console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
+      console.warn('[GMap Review Decoder] Error while loading more reviews:', err);
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = '📥 더 불러오기';
+        btnElement.innerHTML = '📥 Load More';
       }
     }
   }
@@ -967,8 +967,8 @@
       return cloned;
     }
 
-    // 2. 동적 Mock 생성 (미등록 장소의 경우 임의 보정 수치 대신 '데이터 없음' 상태 반환)
-    const displayName = placeName || (gmapId ? `장소 (${gmapId.substring(0, 10)}...)` : '선택된 장소');
+    // 2. Dynamic Mock (no pre-registered data — return 'no data' state instead of arbitrary scores)
+    const displayName = placeName || (gmapId ? `Selected Place (${gmapId.substring(0, 10)}...)` : 'Selected Place');
     const hash = simpleHash(displayName + (gmapId || ''));
     const localRating = (4.0 + (hash % 10) / 10).toFixed(1);
 
@@ -982,7 +982,7 @@
       kr_avg: null,
       kr_count: 0,
       hasKoreanData: false,
-      culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
+      culture_summary: `No native Korean reviews detected yet. Click the Reviews tab in the left panel to start real-time analysis.`,
       metrics: {
         taste: { local: (4.2 + (hash % 6) / 10).toFixed(1), kr: '3.8' },
         service: { local: (4.0 + (hash % 5) / 10).toFixed(1), kr: '3.5' },
@@ -992,8 +992,8 @@
       nuance_tags: [
         {
           tag_id: 1,
-          literal: '💬 한국인 리뷰 미감지 장소',
-          meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
+          literal: '💬 No Korean Reviews Detected',
+          meaning: 'Click the Reviews tab in the Google Maps left panel to detect Korean reviews.'
         }
       ]
     };
@@ -1048,26 +1048,26 @@
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
     const aspectEmojiMap = {
-      '맛': '🍱 맛',
-      '서비스': '💁 서비스',
-      '가성비': '💰 가성비',
-      '분위기': '✨ 분위기',
-      '웨이팅': '⏳ 웨이팅',
-      '위생': '🧹 위생',
-      '주차': '🚗 주차'
+      '맛': '🍱 Taste',
+      '서비스': '💁 Service',
+      '가성비': '💰 Value',
+      '분위기': '✨ Atmosphere',
+      '웨이팅': '⏳ Wait Time',
+      '위생': '🧹 Hygiene',
+      '주차': '🚗 Parking'
     };
     const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
     const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
     const levelChips = [];
     if (aspectLevels) {
       if (aspectLevels.spiciness) {
-        levelChips.push(`🌶️ 맵기 ${aspectLevels.spiciness * 20}%`);
+        levelChips.push(`🌶️ Spiciness ${aspectLevels.spiciness * 20}%`);
       }
       if (aspectLevels.saltiness) {
-        levelChips.push(`🧂 간 ${aspectLevels.saltiness * 20}%`);
+        levelChips.push(`🧂 Saltiness ${aspectLevels.saltiness * 20}%`);
       }
       if (aspectLevels.portion) {
-        levelChips.push(`🥩 양 ${aspectLevels.portion * 20}%`);
+        levelChips.push(`🥩 Portion ${aspectLevels.portion * 20}%`);
       }
     }
 
@@ -1083,12 +1083,12 @@
             <div class="header-logo">🔍</div>
             <div>
               <div class="header-title">GMap Review Decoder</div>
-              <div class="header-subtitle">한국인(KR) 문화권 맞춤 분석</div>
+              <div class="header-subtitle">Korean Cultural Adjuster</div>
             </div>
           </div>
           <div class="header-actions">
-            <button class="action-btn" id="btn-refresh" title="새로고침">🔄</button>
-            <button class="action-btn" id="btn-close" title="닫기">✖</button>
+            <button class="action-btn" id="btn-refresh" title="Refresh">🔄</button>
+            <button class="action-btn" id="btn-close" title="Close">✖</button>
           </div>
         </div>
 
@@ -1096,7 +1096,7 @@
         <div class="decoder-body">
           <!-- Place Title & ID -->
           <div class="place-card">
-            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
+            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || 'Selected Place')}</div>
             <div class="place-meta">
               <span>📍 ${escapeHTML(data.address || 'Google Maps Place')}</span>
               ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
@@ -1107,7 +1107,7 @@
           <!-- User Preferences Highlight -->
           ${(preferredList.length > 0 || levelChips.length > 0) ? `
             <div class="user-preferences-box">
-              <div class="preferences-title">🎯 사용자 맞춤 관심 취향</div>
+              <div class="preferences-title">🎯 Your Preferences</div>
               <div class="pref-tags-list">
                 ${preferredList.map(aspect => `
                   <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
@@ -1123,25 +1123,25 @@
           <div class="ratings-container">
             <!-- Local Rating -->
             <div class="rating-box">
-              <div class="rating-label">🌐 현지 전체 평점</div>
+              <div class="rating-label">🌐 Local Rating</div>
               <div class="rating-score">
                 ${data.local_rating.toFixed(1)}
                 <span class="stars">★</span>
                 <span class="max">/5</span>
               </div>
-              <div class="rating-delta delta-none">구글 기본 평점</div>
+              <div class="rating-delta delta-none">Google Rating</div>
             </div>
 
             <!-- Korean Culture Rating -->
             <div class="rating-box korean-box">
-              <div class="rating-label">🇰🇷 한국인 체감 평점</div>
+              <div class="rating-label">🇰🇷 KR Adjusted Rating</div>
               <div class="rating-score">
-                ${hasKoreanData ? data.korean_rating.toFixed(1) : '미집계'}
+                ${hasKoreanData ? data.korean_rating.toFixed(1) : 'N/A'}
                 <span class="stars">★</span>
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `격차 ${deltaSign}${data.total_kr_count ? ` (총 ${data.total_kr_count}건)` : (data.kr_count ? ` (총 ${data.kr_count}건)` : '')}` : '데이터 수집 중'}
+                ${hasKoreanData ? `Gap ${deltaSign}${data.total_kr_count ? ` (${data.total_kr_count} reviews)` : (data.kr_count ? ` (${data.kr_count} reviews)` : '')}` : 'Collecting data...'}
               </div>
             </div>
           </div>
@@ -1149,11 +1149,11 @@
           <!-- Native Korean Reviews Section -->
           <div class="native-reviews-container">
             <div class="section-title">
-              <span>💬 한국인 원문 리뷰 (${(data.native_korean_reviews || []).length}건)</span>
+              <span>💬 Native Korean Reviews (${(data.native_korean_reviews || []).length})</span>
               <div style="display: flex; gap: 6px; align-items: center;">
-                <button id="btn-fetch-more" class="btn-fetch-more" title="구글 맵스 패널을 스크롤하여 더 많은 한국인 리뷰를 자동으로 불러옵니다.">📥 더 불러오기</button>
+                <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
                 ${(data.native_korean_reviews || []).length > 3 ? 
-                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? '접기 ▲' : '전체보기 ▼'}</button>` : ''
+                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
                 }
               </div>
             </div>
@@ -1169,8 +1169,8 @@
                   </div>
                 `).join('') :
                 `<div class="native-review-empty">
-                   <div style="margin-bottom: 8px;">💬 현재 화면 상단 리뷰 중 한국어 원문이 없습니다. (영어 UI 우선정렬)</div>
-                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 'More reviews' 자동 클릭 &amp; 스크롤 실행</button>
+                   <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
+                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
                  </div>`
               }
             </div>
@@ -1178,32 +1178,32 @@
 
           <!-- Rationale Box -->
           <div class="rationale-box">
-            <div class="rationale-title">💡 문화권 평점 보정 요약</div>
+            <div class="rationale-title">💡 Cultural Rating Summary</div>
             ${escapeHTML(data.culture_summary)}
           </div>
 
           <!-- Comparative Metrics -->
           <div>
             <div class="section-title">
-              <span>📊 항목별 인식 비교</span>
-              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(회색: 현지 / 보라: 한국인)</span>
+              <span>📊 Aspect Comparison</span>
+              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(Gray: Local / Purple: Korean)</span>
             </div>
             <div class="metrics-list">
-              ${renderMetricBar('맛 (Taste)', data.metrics.taste)}
-              ${renderMetricBar('서비스 (Service)', data.metrics.service)}
-              ${renderMetricBar('가성비 (Value)', data.metrics.value)}
-              ${renderMetricBar('분위기 (Atmosphere)', data.metrics.atmosphere)}
+              ${renderMetricBar('Taste', data.metrics.taste)}
+              ${renderMetricBar('Service', data.metrics.service)}
+              ${renderMetricBar('Value for Money', data.metrics.value)}
+              ${renderMetricBar('Atmosphere', data.metrics.atmosphere)}
             </div>
           </div>
 
           <!-- Nuance Decoder Tags -->
           <div>
-            <div class="section-title">💡 뉘앙스 디코딩 태그</div>
+            <div class="section-title">💡 Nuance Decoding Tags</div>
             <div class="tags-grid">
               ${data.nuance_tags.map(tag => `
                 <div class="nuance-tag-card">
                   <div class="tag-literal">${escapeHTML(tag.literal)}</div>
-                  <div class="tag-meaning"><strong>#실제 의미:</strong> ${escapeHTML(tag.meaning)}</div>
+                  <div class="tag-meaning"><strong>#What it actually means:</strong> ${escapeHTML(tag.meaning)}</div>
                 </div>
               `).join('')}
             </div>
@@ -1214,7 +1214,7 @@
         <div class="decoder-footer">
           <div class="status-indicator">
             <span class="dot ${isMock ? 'mock-dot' : ''}"></span>
-            <span>${isMock ? 'Mock Fallback Engine (UCSD Key)' : 'FastAPI 백엔드 연결됨'}</span>
+            <span>${isMock ? 'Mock Fallback Engine (UCSD Key)' : 'FastAPI Backend Connected'}</span>
           </div>
           <span>v1.0.0</span>
         </div>

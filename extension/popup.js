@@ -19,27 +19,27 @@ document.addEventListener('DOMContentLoaded', () => {
   const valPortion = document.getElementById('val-portion');
 
   const spicinessText = {
-    1: '20% (안 매움)',
-    2: '40% (순한맛)',
-    3: '60% (보통)',
-    4: '80% (매운맛)',
-    5: '100% (아주 매운맛)'
+    1: '20% (Not Spicy)',
+    2: '40% (Mild)',
+    3: '60% (Medium)',
+    4: '80% (Spicy)',
+    5: '100% (Extremely Spicy)'
   };
 
   const saltinessText = {
-    1: '20% (슴슴함)',
-    2: '40% (담백함)',
-    3: '60% (적당함)',
-    4: '80% (짭짤함)',
-    5: '100% (강한 간)'
+    1: '20% (Very Bland)',
+    2: '40% (Light)',
+    3: '60% (Balanced)',
+    4: '80% (Salty)',
+    5: '100% (Very Salty)'
   };
 
   const portionText = {
-    1: '20% (소식)',
-    2: '40% (가벼움)',
-    3: '60% (적당함)',
-    4: '80% (든든함)',
-    5: '100% (아주 푸짐)'
+    1: '20% (Very Small)',
+    2: '40% (Light)',
+    3: '60% (Medium)',
+    4: '80% (Filling)',
+    5: '100% (Very Hearty)'
   };
 
   const updateBadges = () => {
@@ -122,10 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
         backendUrl,
         userProfile
       }, () => {
-        btnSave.textContent = '저장 완료! ✓';
+        btnSave.textContent = 'Saved! ✓';
         btnSave.style.background = '#22c55e';
         setTimeout(() => {
-          btnSave.textContent = '설정 저장';
+          btnSave.textContent = 'Save Settings';
           btnSave.style.background = '';
         }, 1500);
       });
