@@ -480,33 +480,30 @@
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유, \n\n좋아요\n\n공유, \n\n좋아요, \n\n공유 등) 전면 절단
-    const footerCutoffRegex = /\n+[\s\u00A0]*(?:\d+[\s\u00A0]*)?(?:좋아요|공유|Like|Share)\b[\s\S]*/i;
-    pureText = pureText.replace(footerCutoffRegex, '');
-
-    // 3. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 점심 식사, 대기 시간 등) 절단 (Cut-off)
+    // 2. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 대기 시간 등) 절단 (Cut-off)
     const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:)/i;
 
     if (uiCutoffRegex.test(pureText)) {
       pureText = pureText.split(uiCutoffRegex)[0];
     }
 
-    // 4. 줄바꿈 및 연속 공백 정돈 (모든 줄바꿈을 공백으로 통일)
+    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
     pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 5. 문장 끝단 잔여 키워드 및 단독 숫자 찌꺼기 2중 제거
+    // 4. 문장 끝단 잔여 키워드 및 단독 숫자 찌꺼기 2중 제거 (Fallback 안전 장치)
     pureText = pureText
+      .replace(/(?:\r?\n+|\s+)(?:좋아요\s+)?(?:\d+\s+)?(?:공유|Share)\s*$/i, '')
+      .replace(/(?:\r?\n+|\s+)(?:좋아요|Like)\s*$/i, '')
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
-      .replace(/\b(?:좋아요|공유|Like|Share)\b/gi, '')
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
       .replace(/\s+\d+\s*$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
-    // 6. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
+    // 5. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
     if (!pureText || !/[a-zA-Z\uAC00-\uD7A3]/.test(pureText)) {
       pureText = '';
     }
@@ -568,8 +565,10 @@
       return false;
     }
 
-    // 구글 맵스 UI 시스템 키워드 제거 후 순수 본문(pureText) 생성
-    const pureText = cleanReviewText(fullText, author);
+    // 리뷰 본문 전용 엘리먼트(.wiYeB 등) 타겟팅 파싱 (헤더/하단 버튼 블록 원천 분리)
+    const bodyEl = reviewEl.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]');
+    const rawBodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : fullText;
+    const pureText = cleanReviewText(rawBodyText, author);
 
     // 순수 본문(pureText) 검사 후 한글 유니코드 존재 여부 확인
     const hasKoreanChar = /[\uAC00-\uD7A3]/.test(pureText);
@@ -655,11 +654,13 @@
           rating = parseRatingFromAriaLabel(ariaText);
         }
 
-        // 원본 DOM 텍스트 보존
-        const rawText = (card.innerText || card.textContent || '').trim();
+        const rawCardText = (card.innerText || card.textContent || '').trim();
+        // 리뷰 본문 전용 엘리먼트(.wiYeB 등) 타겟팅 파싱 (하단 버튼/작성자 헤더 원천 분리)
+        const bodyEl = card.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]');
+        const rawBodyText = bodyEl ? (bodyEl.innerText || bodyEl.textContent || '').trim() : rawCardText;
 
         // 텍스트 정화 (cleanReviewText 사용)
-        const text = cleanReviewText(rawText, author);
+        const text = cleanReviewText(rawBodyText, author);
 
         if (!text || !/[\uAC00-\uD7A3]/.test(text)) {
           console.log(`  [KR Review Filter ❌] 제외됨 (이유: 세탁 후 한글 본문 소실)`);
@@ -672,14 +673,14 @@
         if (dateEl && dateEl.textContent.trim()) {
           date = dateEl.textContent.trim();
         } else {
-          const dateMatch = rawText.match(/(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)/i);
+          const dateMatch = rawCardText.match(/(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)/i);
           if (dateMatch) {
             date = dateMatch[0].trim();
           }
         }
 
         console.log(`  👤 작성자: ${author} ${date ? `(${date})` : ''} | 별점: ★ ${rating || '미기재'}`);
-        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawText));
+        console.log(`  ├ [원본 DOM]:`, JSON.stringify(rawBodyText));
         console.log(`  └ [세탁 후]:`, JSON.stringify(text));
 
         // 중복 방지 키 생성 (author + text 30자)
