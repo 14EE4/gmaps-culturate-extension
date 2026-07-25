@@ -752,6 +752,11 @@
    * @returns {Array<{author: string, rating: number|null, text: string}>}
    */
   function extractNativeKoreanReviewsFromDOM() {
+    if (currentAnalysisData && currentAnalysisData.is_debug_override) {
+      console.log('[GMap Review Decoder] 🐞 [Debug Mode Active] Preserving local CSV reviews, skipping DOM extraction.');
+      return currentAnalysisData.native_korean_reviews || [];
+    }
+
     const reviews = [];
     const seenKeys = new Set();
 
