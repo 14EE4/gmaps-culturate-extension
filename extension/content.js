@@ -162,6 +162,59 @@
     return Math.round((countLE / allF.length) * 100);
   }
 
+  /**
+   * 사용자 프로필(적응 취향 & 중요도)과 한국인 리뷰 본문 간의 키워드 매칭 분석
+   */
+  function analyzeReviewTasteMatches(reviewText, userProfile) {
+    if (!reviewText || !userProfile) return [];
+    const text = reviewText.toLowerCase();
+    const matches = [];
+
+    const tastePrefs = userProfile.tastePreferences || {};
+    const impWeights = userProfile.importanceWeights || {};
+
+    // 1. Spiciness (매운맛)
+    if (tastePrefs.spiciness && tastePrefs.spiciness >= 3) {
+      if (/(맵|매콤|매운|얼큰|신라면|spicy|hot)/i.test(text)) {
+        matches.push('🌶️ Spiciness');
+      }
+    }
+    // 2. Herbs & Spices (향신료)
+    if (tastePrefs.herbs) {
+      if (/(고수|향신료|특유|향이|향은|cilantro|herb)/i.test(text)) {
+        matches.push('🌿 Herbs & Spices');
+      }
+    }
+    // 3. Greasiness / Richness (기름진/느끼/담백)
+    if (tastePrefs.greasiness) {
+      if (/(느끼|기름|담백|진한|고소|greasy|heavy|rich)/i.test(text)) {
+        matches.push('🥑 Richness');
+      }
+    }
+    // 4. Local Authenticity (현지식/현지인)
+    if (tastePrefs.authenticity) {
+      if (/(현지|로컬|익숙|한국인|본토|authentic|local)/i.test(text)) {
+        matches.push('🏮 Local Authenticity');
+      }
+    }
+
+    // 5. High Importance Aspects (Weights >= 4)
+    if (impWeights.s >= 4 && /(친절|불친절|직원|서비스|팁|waiter|service|tip)/i.test(text)) {
+      matches.push('💁 Service');
+    }
+    if (impWeights.v >= 4 && /(가성비|비싸|싸|양|가격|price|portion|cheap|expensive)/i.test(text)) {
+      matches.push('💰 Value');
+    }
+    if (impWeights.t >= 4 && /(맛|존맛|소스|간|짜|싱겁|delicious|tasty|flavor)/i.test(text)) {
+      matches.push('🍱 Taste');
+    }
+    if (impWeights.a >= 4 && /(분위기|인테리어|뷰|매장|vibes|atmosphere)/i.test(text)) {
+      matches.push('✨ Atmosphere');
+    }
+
+    return Array.from(new Set(matches));
+  }
+
   function buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating) {
     const payloadItem = mvpPayload ? mvpPayload[gmapId] : null;
     const hasPayload = !!payloadItem;
@@ -1267,34 +1320,55 @@
           </div>
 
           <!-- Native Korean Reviews Section -->
-          <div class="native-reviews-container">
-            <div class="section-title">
-              <span>💬 Native Korean Reviews (${(data.native_korean_reviews || []).length})</span>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
-                ${(data.native_korean_reviews || []).length > 3 ? 
-                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
-                }
-              </div>
-            </div>
-            <div class="native-reviews-section">
-              ${(data.native_korean_reviews || []).length > 0 ? 
-                (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
-                  <div class="native-review-card">
-                    <div class="native-review-header">
-                      <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
-                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
-                    </div>
-                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+          ${(() => {
+            const rawReviews = data.native_korean_reviews || [];
+            // Process review taste profile matches
+            const processedReviews = rawReviews.map(r => {
+              const matchedTags = analyzeReviewTasteMatches(r.text, userProfile);
+              return { ...r, matchedTags, hasMatch: matchedTags.length > 0 };
+            });
+
+            // Sort taste-matched reviews first
+            const sortedReviews = [...processedReviews].sort((a, b) => (b.matchedTags.length - a.matchedTags.length));
+            const displayReviews = showAllReviews ? sortedReviews : sortedReviews.slice(0, 3);
+            const matchedCount = processedReviews.filter(r => r.hasMatch).length;
+
+            return `
+              <div class="native-reviews-container">
+                <div class="section-title">
+                  <span>💬 Native Korean Reviews (${rawReviews.length}) ${matchedCount > 0 ? `<span style="font-size: 10px; color: #f0abfc; font-weight: normal;">(🎯 ${matchedCount} match your profile)</span>` : ''}</span>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
+                    ${rawReviews.length > 3 ? 
+                      `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
+                    }
                   </div>
-                `).join('') :
-                `<div class="native-review-empty">
-                   <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
-                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
-                 </div>`
-              }
-            </div>
-          </div>
+                </div>
+                <div class="native-reviews-section">
+                  ${displayReviews.length > 0 ? 
+                    displayReviews.map(r => `
+                      <div class="native-review-card ${r.hasMatch ? 'taste-matched-card' : ''}">
+                        ${r.hasMatch ? `
+                          <div class="taste-match-badge">
+                            🎯 Matches your profile: ${r.matchedTags.join(', ')}
+                          </div>
+                        ` : ''}
+                        <div class="native-review-header">
+                          <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
+                          ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                        </div>
+                        <div class="native-review-text">${escapeHTML(r.text)}</div>
+                      </div>
+                    `).join('') :
+                    `<div class="native-review-empty">
+                       <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
+                       <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
+                     </div>`
+                  }
+                </div>
+              </div>
+            `;
+          })()}
 
           <!-- Rationale Box -->
           <div class="rationale-box">
