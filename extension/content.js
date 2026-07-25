@@ -367,6 +367,27 @@
   }
 
   /**
+   * DOM에서 장소 카테고리 추출
+   * (Google Maps button.DkEaL 및 jsaction*="category" 기반)
+   */
+  function extractCategoryFromDOM() {
+    try {
+      const categoryBtns = Array.from(document.querySelectorAll('button.DkEaL, button[jsaction*="category"]'));
+      if (categoryBtns.length > 0) {
+        const categories = categoryBtns
+          .map(btn => (btn.innerText || btn.textContent || '').trim())
+          .filter(text => text && text.length > 0 && !text.includes('·'));
+        if (categories.length > 0) {
+          return Array.from(new Set(categories)).join(', ');
+        }
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 카테고리 추출 중 오류:', e);
+    }
+    return null;
+  }
+
+  /**
    * 다국어 aria-label에서 별점 점수(1.0~5.0) 추출
    * 예: "4 stars", "4.0 out of 5 stars", "Rated 4 out of 5", "별표 5개 중 4개", "4/5", "4점", "4개"
    */
@@ -723,11 +744,17 @@
         }
         extractNativeKoreanReviewsFromDOM();
 
-        // 장소명 또는 주소가 뒤늦게 렌더링된 경우 업데이트
+        // 장소명, 주소 또는 카테고리가 뒤늦게 렌더링된 경우 업데이트
         const freshAddr = extractAddressFromDOM();
         let isAddrUpdated = false;
         if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
           data.address = freshAddr;
+          isAddrUpdated = true;
+        }
+
+        const freshCat = extractCategoryFromDOM();
+        if (freshCat && (!data.category || data.category === 'Restaurant, Point of Interest')) {
+          data.category = freshCat;
           isAddrUpdated = true;
         }
 
@@ -1259,10 +1286,15 @@
     currentAnalysisData = data;
     currentIsMock = isMock;
 
-    // DOM에서 실제 주소, 현지 평점 및 한국어 리뷰 파싱 시도
+    // DOM에서 실제 주소, 카테고리, 현지 평점 및 한국어 리뷰 파싱 시도
     const liveAddr = extractAddressFromDOM();
     if (liveAddr) {
       currentAnalysisData.address = liveAddr;
+    }
+
+    const liveCat = extractCategoryFromDOM();
+    if (liveCat) {
+      currentAnalysisData.category = liveCat;
     }
 
     applyDOMRating(currentAnalysisData);
