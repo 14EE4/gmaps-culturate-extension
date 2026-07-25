@@ -456,7 +456,7 @@ class GoogleMapsScraper:
             except Exception:
                 pass
 
-            time.sleep(1.2)
+            time.sleep(0.8)
 
             # 더 이상 로딩할 리뷰가 없는지 판별 (소규모 식당 시 빠른 종료)
             current_card_count = len(review_cards)
