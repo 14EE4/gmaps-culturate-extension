@@ -151,44 +151,27 @@ class GoogleMapsScraper:
         return place_name or "restaurant"
 
     def ensure_reviews_tab(self, url: str) -> None:
-        """리뷰 탭 접속 상태 보장 (미접속 시 탭 클릭 및 데이터 로딩 보장)"""
+        """리뷰 탭 접속 상태 보장: 리뷰 카드 없을 시 !9m1!1b1 URL로 재접속"""
         card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
         cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
         if len(cards) > 0:
             return
 
-        # 1. 탭 버튼 클릭 시도 (Reviews / 리뷰 탭)
-        tab_selectors = [
-            "button[data-tab-index='1']",
-            "div[role='tablist'] button:nth-child(2)",
-            "button[aria-label*='reviews']",
-            "button[aria-label*='리뷰']",
-            "button.hh2ftd"
-        ]
-        
-        try:
-            tabs = self.driver.find_elements(By.CSS_SELECTOR, ", ".join(tab_selectors))
-            for b in tabs:
-                if b.is_displayed():
-                    self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
-                    self.driver.execute_script("arguments[0].click();", b)
-                    time.sleep(2.5)
-                    cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
-                    if len(cards) > 0:
-                        return
-        except Exception:
-            pass
-
-        # 2. URL !9m1!1b1 보정 접속 시도
+        # 현재 URL에 !9m1!1b1이 없으면 삽입하여 리뷰 탭 URL로 변환
         curr_url = self.driver.current_url
         if "!9m1!1b1" not in curr_url:
-            if "data=" in curr_url:
-                target_url = curr_url.replace("data=", "data=!9m1!1b1")
+            # ? 앞(쿼리스트링 앞)에 !9m1!1b1 삽입
+            if "?" in curr_url:
+                base, query = curr_url.split("?", 1)
+                reviews_url = base + "!9m1!1b1?" + query
             else:
-                target_url = url
+                reviews_url = curr_url + "!9m1!1b1"
             try:
-                self.driver.get(target_url)
-                time.sleep(2)
+                self.driver.get(reviews_url)
+                time.sleep(2.5)
+                cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+                if len(cards) > 0:
+                    return
             except Exception:
                 pass
 
