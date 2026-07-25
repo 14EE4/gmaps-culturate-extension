@@ -480,8 +480,8 @@
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유, \n\n좋아요\n\n공유, \n\n공유 등) 전면 절단
-    const footerCutoffRegex = /\n+[\s\u00A0]*(?:좋아요\s+)?(?:\d+\s+)?(?:공유|Share)\b[\s\S]*/i;
+    // 2. 리뷰 하단 액션 블록 (\n\n1\n\n공유, \n\n좋아요\n\n공유, \n\n좋아요, \n\n공유 등) 전면 절단
+    const footerCutoffRegex = /\n+[\s\u00A0]*(?:\d+[\s\u00A0]*)?(?:좋아요|공유|Like|Share)\b[\s\S]*/i;
     pureText = pureText.replace(footerCutoffRegex, '');
 
     // 3. UI 버튼, 설문/폼 항목 (자세히 보기, 식사 유형, 점심 식사, 대기 시간 등) 절단 (Cut-off)
