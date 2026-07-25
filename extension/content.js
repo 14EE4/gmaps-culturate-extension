@@ -1009,13 +1009,13 @@
 
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
+        btnElement.innerHTML = btnElement.dataset.originalText || '📥 Load More';
       }
     } catch (err) {
-      console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
+      console.warn('[GMap Review Decoder] Error while loading more reviews:', err);
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = '📥 더 불러오기';
+        btnElement.innerHTML = '📥 Load More';
       }
     }
   }
@@ -1075,6 +1075,7 @@
     const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
     return { data: fallbackData, isMock: false };
   }
+
 
 
 
