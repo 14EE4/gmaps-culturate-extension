@@ -488,20 +488,18 @@
       pureText = pureText.split(uiCutoffRegex)[0];
     }
 
-    // 3. 잔여 서비스/설문 옵션 키워드 및 수정일/단독 버튼 제거
+    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일하여 수식 매칭 준비)
+    pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // 4. 잔여 서비스/설문 옵션 키워드, 미디어 타임스탬프 및 문장 끝 단독 좋아요 수/공유 버튼 찌꺼기 제거
     pureText = pureText
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
-      .replace(/(?:\s+\d+)?\s*(?:좋아요|공유|Like|Share)\s*$/gi, '');
-
-    // 4. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 좋아요 수 및 공유 버튼 찌꺼기 제거
-    pureText = pureText
+      .replace(/\b(?:좋아요|공유|Like|Share)\b/gi, '')
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
-      .replace(/(?:\s+\d+)?\s*(?:좋아요|공유|Like|Share)\s*$/gi, '')
-      .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
-      .replace(/\n+/g, ' ')
+      .replace(/\s+\d+\s*$/g, '') // 문장 끝단 단독 좋아요 수(1, 15 등) 제거
       .replace(/\s+/g, ' ')
       .trim();
 
