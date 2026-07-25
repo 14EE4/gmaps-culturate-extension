@@ -778,6 +778,21 @@
   color: #fca5a5 !important;
 }
 
+/* Debug Mode Override Styles */
+.debug-banner {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px dashed #f59e0b;
+  color: #fcd34d;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 
 
 

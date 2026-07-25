@@ -25,6 +25,21 @@
   // Data Spec v2 Engine States & Helpers
   let extensionData = null;
   let mvpPayload = null;
+  let isDebugMode = false;
+  let cachedCheesecakeReviews = null;
+
+  async function loadCheesecakeReviews() {
+    if (cachedCheesecakeReviews) return cachedCheesecakeReviews;
+    try {
+      const url = chrome.runtime.getURL('data/cheesecake_factory_reviews.json');
+      const res = await fetch(url);
+      cachedCheesecakeReviews = await res.json();
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load cheesecake_factory_reviews.json:', e);
+      cachedCheesecakeReviews = [];
+    }
+    return cachedCheesecakeReviews;
+  }
 
   async function loadExtensionData() {
     if (extensionData) return extensionData;
@@ -1100,6 +1115,17 @@
       }
 
       const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
+
+      // Check Debug Mode Override for The Cheesecake Factory
+      if (isDebugMode && (gmapId === '0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5' || (placeName && placeName.toLowerCase().includes('cheesecake factory')))) {
+        const csvReviews = await loadCheesecakeReviews();
+        if (csvReviews && csvReviews.length > 0) {
+          analysisData.native_korean_reviews = csvReviews;
+          analysisData.is_debug_override = true;
+          console.log(`[GMap Review Decoder] 🐞 [Debug Mode Active] Overridden Cheesecake Factory reviews with ${csvReviews.length} CSV items.`);
+        }
+      }
+
       return { data: analysisData, isMock: false };
     }
 
@@ -1126,6 +1152,15 @@
     // Fallback: Dataset resolution (No Mock Data)
     const fallbackResolved = resolve(gmapId, googleRating);
     const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
+
+    if (isDebugMode && (gmapId === '0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5' || (placeName && placeName.toLowerCase().includes('cheesecake factory')))) {
+      const csvReviews = await loadCheesecakeReviews();
+      if (csvReviews && csvReviews.length > 0) {
+        fallbackData.native_korean_reviews = csvReviews;
+        fallbackData.is_debug_override = true;
+      }
+    }
+
     return { data: fallbackData, isMock: false };
   }
 
@@ -1335,6 +1370,11 @@
 
             return `
               <div class="native-reviews-container">
+                ${data.is_debug_override ? `
+                  <div class="debug-banner">
+                    <span>🐞 [Debug Mode Active] Overridden with Cheesecake Factory Local CSV (${rawReviews.length} Reviews)</span>
+                  </div>
+                ` : ''}
                 <div class="section-title">
                   <span>💬 Native Korean Reviews (${rawReviews.length}) ${matchedCount > 0 ? `<span style="font-size: 10px; color: #f0abfc; font-weight: normal;">(🎯 ${matchedCount} match your profile)</span>` : ''}</span>
                   <div style="display: flex; gap: 6px; align-items: center;">
@@ -1643,8 +1683,9 @@
 
   // Load User Preferences from Storage
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'userProfile'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'isDebugMode', 'targetCulture', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) isEnabled = res.isEnabled;
+      if (res.isDebugMode !== undefined) isDebugMode = res.isDebugMode;
       if (res.targetCulture) targetCulture = res.targetCulture;
       if (res.userProfile) userProfile = res.userProfile;
       startMonitoring();
@@ -1652,6 +1693,7 @@
 
     chrome.storage.onChanged.addListener((changes) => {
       if (changes.isEnabled) isEnabled = changes.isEnabled.newValue;
+      if (changes.isDebugMode) isDebugMode = changes.isDebugMode.newValue;
       if (changes.targetCulture) targetCulture = changes.targetCulture.newValue;
       if (changes.userProfile) userProfile = changes.userProfile.newValue;
 

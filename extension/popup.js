@@ -5,6 +5,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   const toggleEnabled = document.getElementById('toggle-enabled');
+  const toggleDebug = document.getElementById('toggle-debug');
   const selectCulture = document.getElementById('select-culture');
   const inputBackend = document.getElementById('input-backend');
   const btnSave = document.getElementById('btn-save');
@@ -79,8 +80,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Load existing settings
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'backendUrl', 'userProfile'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'isDebugMode', 'targetCulture', 'backendUrl', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) toggleEnabled.checked = res.isEnabled;
+      if (res.isDebugMode !== undefined && toggleDebug) toggleDebug.checked = res.isDebugMode;
       if (res.targetCulture) selectCulture.value = res.targetCulture;
       if (res.backendUrl) inputBackend.value = res.backendUrl;
 
@@ -120,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Helper function to save current state
   const savePreferences = () => {
     const isEnabled = toggleEnabled.checked;
+    const isDebugMode = toggleDebug ? toggleDebug.checked : false;
     const targetCulture = selectCulture.value;
     const backendUrl = inputBackend.value.trim() || 'http://localhost:8000';
 
@@ -142,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({
         isEnabled,
+        isDebugMode,
         targetCulture,
         backendUrl,
         userProfile
@@ -159,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Save settings on button click
   btnSave.addEventListener('click', savePreferences);
   if (toggleEnabled) toggleEnabled.addEventListener('change', savePreferences);
+  if (toggleDebug) toggleDebug.addEventListener('change', savePreferences);
   if (selectCulture) selectCulture.addEventListener('change', savePreferences);
 
   updateBadges();
