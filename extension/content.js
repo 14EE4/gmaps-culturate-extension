@@ -229,10 +229,22 @@
       status_badge: statusBadge,
       index_entry: indexEntry,
       metrics: {
-        taste: { local: localRating.toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '-' },
-        service: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.2).toFixed(1) : '-' },
-        value: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.3).toFixed(1) : '-' },
-        atmosphere: { local: localRating.toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '-' }
+        taste: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.t !== undefined) ? clamp(localRating + indexEntry.z.t, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        service: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.s !== undefined) ? clamp(localRating + indexEntry.z.s, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        value: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.v !== undefined) ? clamp(localRating + indexEntry.z.v, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        atmosphere: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.a !== undefined) ? clamp(localRating + indexEntry.z.a, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        }
       },
       nuance_tags: [
         {
