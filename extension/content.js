@@ -467,6 +467,10 @@
 
     let pureText = rawText.replace(/\u00A0/g, ' ');
 
+    // 0. 하단 액션 블록 (\n\n1\n\n공유, \n\n공유, \n\n좋아요 등) 출현 시 해당 위치부터 전면 절단
+    const footerCutoffRegex = /\n+[\s\u00A0]*\d*[\s\u00A0]*(?:공유|좋아요|Share|Like)\b[\s\S]*/i;
+    pureText = pureText.replace(footerCutoffRegex, '');
+
     if (author && author !== '익명') {
       pureText = pureText.replace(author, '');
     }
@@ -480,26 +484,24 @@
       .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
       .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
 
-    // 2. UI 버튼, 설문/폼 항목 (식사 유형, 점심 식사, 주문 유형, 대기 시간 등) 및 하단 액션 키워드 절단 (Cut-off)
-    // 주의: '좋아요'는 본문 문장("음식맛도 좋아요")에 포함될 수 있으므로 줄바꿈/독립 버튼/숫자+공유 형태일 때만 절단
-    const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:|\n+[\s\u00A0\d]*(?:좋아요|공유|Like|Share)\b|[\s\u00A0]\d+[\s\u00A0]*(?:좋아요|공유|Like|Share)\b)/i;
+    // 2. UI 버튼, 설문/폼 항목 (식사 유형, 점심 식사, 주문 유형, 대기 시간 등) 절단 (Cut-off)
+    const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:)/i;
 
     if (uiCutoffRegex.test(pureText)) {
       pureText = pureText.split(uiCutoffRegex)[0];
     }
 
-    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일하여 수식 매칭 준비)
+    // 3. 줄바꿈 및 연속 공백 일차 정돈 (모든 줄바꿈을 공백으로 통일)
     pureText = pureText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // 4. 잔여 서비스/설문 옵션 키워드, 미디어 타임스탬프 및 문장 끝 단독 좋아요 수/공유 버튼 찌꺼기 제거
+    // 4. 잔여 서비스/설문 옵션 키워드, 미디어 타임스탬프 및 문장 끝 단독 숫자 찌꺼기 제거
     pureText = pureText
       .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
       .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
       .replace(/(?:수정일:|Edited:)/gi, '')
-      .replace(/\b(?:좋아요|공유|Like|Share)\b/gi, '')
       .replace(/\b\d+:\d+\b/g, '')
       .replace(/\+\d+/g, '')
-      .replace(/\s+\d+\s*$/g, '') // 문장 끝단 단독 좋아요 수(1, 15 등) 제거
+      .replace(/\s+\d+\s*$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
 
