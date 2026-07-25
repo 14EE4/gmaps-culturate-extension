@@ -26,7 +26,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class GoogleMapsScraper:
-    def __init__(self, headless=False, language="en"):
+    def __init__(self, headless=True, language="en"):
         self.language = language
         self.options = Options()
         
@@ -46,6 +46,11 @@ class GoogleMapsScraper:
         )
         self.options.add_experimental_option("excludeSwitches", ["enable-automation"])
         self.options.add_experimental_option("useAutomationExtension", False)
+        
+        # Chrome 언어 설정 (URL 구조를 훼손하지 않고 원문을 수집하도록 보장)
+        self.options.add_experimental_option("prefs", {
+            "intl.accept_languages": f"{language},{language}_US,en,en_US,ko_KR"
+        })
 
         service = Service(ChromeDriverManager().install())
         self.driver = webdriver.Chrome(service=service, options=self.options)
@@ -85,14 +90,6 @@ class GoogleMapsScraper:
             return match.group(1)
 
         return "UNKNOWN_PLACE_ID"
-
-    def format_url(self, url: str) -> str:
-        """URL의 기존 모든 hl=... 파라미터를 제거하고 원문 보장 언어(hl=en)로 재설정"""
-        clean_url = re.sub(r"([?&])hl=[^&]*&?", r"\1", url).rstrip("?&")
-        if "?" in clean_url:
-            return f"{clean_url}&hl={self.language}"
-        else:
-            return f"{clean_url}?hl={self.language}"
 
     def extract_place_name_from_url(self, url: str) -> str:
         """URL 경로(/place/식당이름/)에서 식당 이름 디코딩 및 추출"""
@@ -154,9 +151,8 @@ class GoogleMapsScraper:
         return place_name or "restaurant"
 
     def scrape(self, url: str, max_reviews: int = 100) -> tuple[pd.DataFrame, str]:
-        formatted_url = self.format_url(url)
-        print(f"[+] Google Maps 접속 중 (원문 보장 모드 hl={self.language}): {formatted_url}")
-        self.driver.get(formatted_url)
+        print(f"[+] Google Maps 접속 중: {url}")
+        self.driver.get(url)
         
         try:
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -209,12 +205,12 @@ class GoogleMapsScraper:
             tab_clicked = False
             time.sleep(2)
             
-            for sel in ["button[data-tab-index='1']", "button.hh2ftd", "button[aria-label*='리뷰']", "button[aria-label*='Reviews']"]:
+            for sel in ["button[data-tab-index='1']", "button.hh2ftd", "button[aria-label*='리뷰']", "button[aria-label*='Reviews']", "button[aria-label*='reviews']"]:
                 try:
                     btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
                     for b in btns:
                         label = (b.get_attribute("aria-label") or "") + " " + (b.get_attribute("textContent") or b.text or "")
-                        if ("리뷰" in label or "Reviews" in label) and b.is_displayed():
+                        if ("리뷰" in label or "Reviews" in label or "reviews" in label.lower()) and b.is_displayed():
                             self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
                             self.driver.execute_script("arguments[0].click();", b)
                             tab_clicked = True
@@ -395,11 +391,25 @@ class GoogleMapsScraper:
             if len(reviews_data) >= max_reviews:
                 break
 
-            # 스크롤 내리기 (scrollTop = scrollHeight)
+            # 스크롤 내리기 (1. 마지막 카드를 스크롤 영역으로 끌어오기 + 2. 컨테이너 스크롤)
+            if review_cards:
+                try:
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", review_cards[-1])
+                except Exception:
+                    pass
+
             if scrollable_div:
-                self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scrollable_div)
-            else:
-                self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                try:
+                    self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", scrollable_div)
+                except Exception:
+                    pass
+
+            try:
+                divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf")
+                for d in divs:
+                    self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", d)
+            except Exception:
+                pass
 
             time.sleep(2.5)
 
@@ -430,7 +440,7 @@ def main():
     parser.add_argument("--url", type=str, help="구글 맵스 식당 URL")
     parser.add_argument("--max-reviews", type=int, default=100, help="수집할 최대 리뷰 수 (기본값: 100)")
     parser.add_argument("--lang", type=str, default="en", help="구글 맵스 수집 언어 (기본값: en - 원문 수집 보장)")
-    parser.add_argument("--headless", action="store_true", help="헤드리스 모드로 실행")
+    parser.add_argument("--no-headless", action="store_true", help="헤드리스 모드를 끄고 브라우저 화면을 보면서 실행 (GUI 모드)")
     
     args = parser.parse_args()
 
@@ -439,10 +449,10 @@ def main():
         url = input("URL을 입력하세요: ").strip()
 
     if not url:
-        print("[!] URL이 입력되지 않았습니다. 종료합니다.")
+        print("[!] URL이 입력되지 않았습니까지. 종료합니다.")
         sys.exit(1)
 
-    scraper = GoogleMapsScraper(headless=args.headless, language=args.lang)
+    scraper = GoogleMapsScraper(headless=not args.no_headless, language=args.lang)
     
     try:
         df, place_name = scraper.scrape(url, max_reviews=args.max_reviews)
