@@ -301,6 +301,62 @@
   }
 
   /**
+   * 구글 맵스 시스템 UI 키워드 및 메타데이터 제거 (Clean/Text Stripping)
+   * @param {string} rawText
+   * @param {string} author
+   * @returns {string} pureText
+   */
+  function cleanReviewText(rawText, author = '') {
+    if (!rawText) return '';
+
+    let pureText = rawText.replace(/\u00A0/g, ' ');
+
+    if (author && author !== '익명') {
+      pureText = pureText.replace(author, '');
+    }
+
+    // 1. 프로필 메타데이터, 작성일, 시스템 뱃지 및 라벨 제거
+    pureText = pureText
+      .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '')
+      .replace(/^(신규|New)\s*/gi, '')
+      .replace(/(?:^|\s+)(?:신규|New)(?=\s+|$)/gi, ' ')
+      .replace(/지역 가이드\s*·\s*리뷰\s*\d+개(\s*·\s*사진\s*\d+장)?/gi, '')
+      .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
+      .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
+
+    // 2. UI 버튼, 설문/폼 항목 (식사 유형, 점심 식사, 주문 유형, 대기 시간 등) 및 하단 액션 키워드 절단 (Cut-off)
+    // 주의: '좋아요'는 본문 문장("음식맛도 좋아요")에 포함될 수 있으므로 줄바꿈/독립 버튼 형태일 때만 절단
+    const uiCutoffRegex = /(?:자세히 보기|간단히 보기|업체 대표 응답|식사 유형|주문 유형|음식점 유형|점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장|1인당 가격|가격대|음식:|서비스:|분위기:|대기 시간|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Response from the owner|Owner response|Price per person|Food:|Service:|Atmosphere:|\n+\s*(?:좋아요|공유|Like|Share)\b)/i;
+
+    if (uiCutoffRegex.test(pureText)) {
+      pureText = pureText.split(uiCutoffRegex)[0];
+    }
+
+    // 3. 잔여 서비스/설문 옵션 키워드 및 수정일/단독 버튼 제거
+    pureText = pureText
+      .replace(/(?:식사 유형|주문 유형|음식점 유형|1인당 가격|대기 시간)\s*(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)?/gi, '')
+      .replace(/(?:점심 식사|저녁 식사|아침 식사|브런치|야식|매장 내 식사|테이크아웃|배달|포장)/gi, '')
+      .replace(/(?:수정일:|Edited:)/gi, '')
+      .replace(/\b(?:좋아요|공유|Like|Share)\s*$/gi, '');
+
+    // 4. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거 및 공백 정돈
+    pureText = pureText
+      .replace(/\b\d+:\d+\b/g, '')
+      .replace(/\+\d+/g, '')
+      .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
+      .replace(/\n+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // 5. 세탁 후 빈 문자열이거나 의미 없는 특수문자/숫자뿐이라면 빈 값("") 처리
+    if (!pureText || !/[a-zA-Z\uAC00-\uD7A3]/.test(pureText)) {
+      pureText = '';
+    }
+
+    return pureText;
+  }
+
+  /**
    * 1. 리뷰 카드 DOM이 원문 한국어 리뷰인지 판별 (진단 로그 포함)
    */
   function isNativeKoreanReview(reviewEl, logReason = false) {
@@ -337,11 +393,23 @@
       }
     }
 
-    const hasKoreanChar = /[\uAC00-\uD7A3]/.test(fullText);
+    // 작성자 닉네임 추출
+    let author = '익명';
+    const authorEl = reviewEl.querySelector('.d4r55, button.alhrr, .X43fe-geL2f-haAclf, [class*="author"]');
+    if (authorEl && authorEl.textContent.trim()) {
+      author = authorEl.textContent.trim();
+    }
+
+    // 구글 맵스 UI 시스템 키워드 제거 후 순수 본문(pureText) 생성
+    const pureText = cleanReviewText(fullText, author);
+
+    // 순수 본문(pureText) 검사 후 한글 유니코드 존재 여부 확인
+    const hasKoreanChar = /[\uAC00-\uD7A3]/.test(pureText);
     if (!hasKoreanChar) {
       if (logReason) {
-        console.log(`  [KR Review Filter ❌] 제외됨 (이유: 한글 유니코드 미포함 - 순수 외국어 리뷰)`);
-        console.log(`    └ [미리보기]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+        console.log(`  [KR Review Filter ❌] 제외됨 (이유: UI 키워드 제거 후 순수 본문에 한글 유니코드 미포함)`);
+        console.log(`    └ [원본 텍스트]: "${fullText.substring(0, 80).replace(/\n/g, ' ')}..."`);
+        console.log(`    └ [세탁 후 본문]: "${pureText}"`);
       }
       return false;
     }
@@ -398,33 +466,8 @@
         // 원본 DOM 텍스트 보존
         const rawText = (card.innerText || card.textContent || '').trim();
 
-        // 텍스트 정화
-        let text = rawText.replace(/\u00A0/g, ' ');
-
-        if (author && author !== '익명') {
-          text = text.replace(author, '');
-        }
-
-        // 1. 프로필 메타데이터 및 상단 작성일 제거 (한국어 & 영어 UI 지원)
-        text = text
-          .replace(/^[\s\S]*?(?:수정일:|Edited\s*)?\b(?:\d+|a|an)\s*(?:년|개월|주|일|시간|years?|months?|weeks?|days?|hours?|mins?|minutes?)\s*(?:전|ago)\s*/gi, '')
-          .replace(/(?:지역 가이드|Local Guide)\s*(?:·\s*)?/gi, '')
-          .replace(/[\d,]+\s*(?:개|장|reviews?|photos?|사진)(?:\s*·\s*)?/gi, '');
-
-        // 2. UI 버튼, 번역 뱃지 및 구글 폼 설문 키워드 절단 (Cut-off) - 한국어 및 영어 지원
-        const uiCutoffRegex = /(?:자세히 보기|간단히 보기|좋아요|공유|업체 대표 응답|식사 유형|음식점 유형|1인당 가격|가격대|음식:|서비스:|분위기:|소음 수준|그룹 크기|주차 공간|주차 옵션|추천 메뉴|방문 목적|Google 제공 번역|Google 제공|Google 번역|More|Less|See translation|See original|Translated by Google|Rate and review|Like|Share|Response from the owner|Owner response|Dine in|Takeout|Delivery|Price per person|Food:|Service:|Atmosphere:)/i;
-        if (uiCutoffRegex.test(text)) {
-          text = text.split(uiCutoffRegex)[0];
-        }
-
-        // 3. 미디어 타임스탬프, 미디어 수, 문장 끝 단독 숫자 제거
-        text = text
-          .replace(/\b\d+:\d+\b/g, '')
-          .replace(/\+\d+/g, '')
-          .replace(/[\s\u00A0]+\d+[\s\u00A0]*$/g, '')
-          .replace(/\n+/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
+        // 텍스트 정화 (cleanReviewText 사용)
+        const text = cleanReviewText(rawText, author);
 
         if (!text || !/[\uAC00-\uD7A3]/.test(text)) {
           console.log(`  [KR Review Filter ❌] 제외됨 (이유: 세탁 후 한글 본문 소실)`);
