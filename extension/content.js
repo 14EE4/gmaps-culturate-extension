@@ -310,6 +310,44 @@
   }
 
   /**
+   * DOM에서 장소 주소 추출
+   * (Google Maps data-item-id="address" 버튼 및 aria-label / .Io6YTe 기반)
+   */
+  function extractAddressFromDOM() {
+    try {
+      // 1. data-item-id="address" 및 data-tooltip="주소 복사" 셀렉터 우선 검사
+      const addressBtn = document.querySelector('button[data-item-id="address"], [data-item-id="address"], button[data-tooltip="주소 복사"], button[data-tooltip="Copy address"]');
+      if (addressBtn) {
+        // 내부 텍스트 엘리먼트 (div.Io6YTe, .rogA2c)
+        const textEl = addressBtn.querySelector('.Io6YTe, .rogA2c, div');
+        if (textEl && textEl.textContent.trim()) {
+          return textEl.textContent.trim();
+        }
+
+        // aria-label 파싱 ("주소: 3201 S Hoover St..." 또는 "Address: 3201 S Hoover St...")
+        const ariaLabel = addressBtn.getAttribute('aria-label') || '';
+        if (ariaLabel) {
+          let cleanAddr = ariaLabel
+            .replace(/^(주소|Address):\s*/gi, '')
+            .trim();
+          if (cleanAddr) return cleanAddr;
+        }
+      }
+
+      // 2. aria-label 기반 Fallback 검색 ([aria-label*="주소:"], [aria-label*="Address:"])
+      const ariaEl = document.querySelector('[aria-label*="주소:"], [aria-label*="Address:"]');
+      if (ariaEl) {
+        const label = ariaEl.getAttribute('aria-label') || '';
+        let cleanAddr = label.replace(/^(주소|Address):\s*/gi, '').trim();
+        if (cleanAddr) return cleanAddr;
+      }
+    } catch (e) {
+      console.log('[GMap Review Decoder] DOM 주소 추출 중 오류:', e);
+    }
+    return null;
+  }
+
+  /**
    * 다국어 aria-label에서 별점 점수(1.0~5.0) 추출
    * 예: "4 stars", "4.0 out of 5 stars", "Rated 4 out of 5", "별표 5개 중 4개", "4/5", "4점", "4개"
    */
@@ -666,14 +704,25 @@
         }
         extractNativeKoreanReviewsFromDOM();
 
-        // 장소명이 뒤늦게 렌더링된 경우 업데이트
+        // 장소명 또는 주소가 뒤늦게 렌더링된 경우 업데이트
+        const freshAddr = extractAddressFromDOM();
+        let isAddrUpdated = false;
+        if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
+          data.address = freshAddr;
+          isAddrUpdated = true;
+        }
+
         if (data.place_name && data.place_name.startsWith('장소 (')) {
           const freshName = extractPlaceNameFromDOM();
           if (freshName && !freshName.startsWith('장소 (')) {
             data.place_name = freshName;
             currentPlaceName = freshName;
-            renderSidebar(data, isMock);
+            isAddrUpdated = true;
           }
+        }
+
+        if (isAddrUpdated) {
+          renderSidebar(data, isMock);
         }
       }, delay);
       retryTimers.push(timerId);
@@ -1191,7 +1240,12 @@
     currentAnalysisData = data;
     currentIsMock = isMock;
 
-    // DOM에서 실제 현지 평점 및 한국어 리뷰 파싱 시도
+    // DOM에서 실제 주소, 현지 평점 및 한국어 리뷰 파싱 시도
+    const liveAddr = extractAddressFromDOM();
+    if (liveAddr) {
+      currentAnalysisData.address = liveAddr;
+    }
+
     applyDOMRating(currentAnalysisData);
     extractNativeKoreanReviewsFromDOM();
 
