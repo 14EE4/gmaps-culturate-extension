@@ -119,7 +119,7 @@ class GoogleMapsScraper:
                 try:
                     elems = self.driver.find_elements(By.CSS_SELECTOR, sel)
                     for elem in elems:
-                        txt = elem.text.strip()
+                        txt = (elem.get_attribute("textContent") or elem.text or "").strip()
                         if txt and txt not in ["Google 지도", "Google Maps", "검색", "Search"]:
                             place_name = txt
                             break
@@ -181,7 +181,7 @@ class GoogleMapsScraper:
         try:
             rating_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontDisplayLarge, div.F72Y3c, span.ce3eFc, div.fontBodyMedium span[aria-hidden='true']")
             for r in rating_elems:
-                txt = r.text.strip()
+                txt = (r.get_attribute("textContent") or r.text or "").strip()
                 if re.match(r"^\d(\.\d)?$", txt):
                     overall_rating = txt
                     break
@@ -191,7 +191,7 @@ class GoogleMapsScraper:
         try:
             review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], button[data-tab-index='1'], span[aria-label*='reviews']")
             for c in review_cnt_elems:
-                txt = c.text.strip()
+                txt = (c.get_attribute("textContent") or c.text or "").strip()
                 if txt and ("리뷰" in txt or "개" in txt or "reviews" in txt.lower()):
                     total_reviews_count = txt
                     break
@@ -214,7 +214,7 @@ class GoogleMapsScraper:
                 try:
                     btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
                     for b in btns:
-                        label = (b.get_attribute("aria-label") or "") + " " + b.text
+                        label = (b.get_attribute("aria-label") or "") + " " + (b.get_attribute("textContent") or b.text or "")
                         if ("리뷰" in label or "Reviews" in label) and b.is_displayed():
                             self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
                             self.driver.execute_script("arguments[0].click();", b)
@@ -230,29 +230,28 @@ class GoogleMapsScraper:
             if not tab_clicked:
                 print("[*] 리뷰 탭 클릭 생략 (기본 로드 영역 진행)")
 
-        # 5. 리뷰 스크롤 컨테이너 감지 (scrollHeight > clientHeight + 50 인 m6QEdf 전용 탐색)
+        # 5. 리뷰 스크롤 컨테이너 감지
         scrollable_div = None
         time.sleep(2)
 
-        # 1차: CSS selector div.m6QEdf.D6fe2e
-        try:
-            divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf.D6fe2e, div.m6QEdf[role='region']")
-            for d in divs:
-                try:
-                    s_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
-                    c_h = self.driver.execute_script("return arguments[0].clientHeight", d)
-                    if s_h and c_h and (s_h - c_h > 50) and d.is_displayed():
-                        scrollable_div = d
-                        break
-                except Exception:
-                    pass
-        except Exception:
-            pass
+        cards_for_scroll = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
+        if cards_for_scroll:
+            try:
+                scrollable_div = self.driver.execute_script(
+                    "let el = arguments[0]; "
+                    "while (el && el !== document.body) { "
+                    "  if (el.scrollHeight > el.clientHeight && el.clientHeight > 100) return el; "
+                    "  el = el.parentElement; "
+                    "} "
+                    "return null;",
+                    cards_for_scroll[0]
+                )
+            except Exception:
+                pass
 
-        # 2차: 전체 div.m6QEdf 중 스크롤 영역 감지
         if not scrollable_div:
             try:
-                divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf")
+                divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf.D6fe2e, div.m6QEdf")
                 for d in divs:
                     try:
                         s_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
@@ -266,7 +265,7 @@ class GoogleMapsScraper:
                 pass
 
         if scrollable_div:
-            print("[+] 리뷰 무한 스크롤 전용 컨테이너(div.m6QEdf.D6fe2e)를 정상 감지하였습니다.")
+            print("[+] 리뷰 무한 스크롤 전용 컨테이너를 정상 감지하였습니다.")
         else:
             print("[!] 리뷰 스크롤 전용 컨테이너 감지 실패, body 스크롤을 시도합니다.")
 
@@ -291,7 +290,7 @@ class GoogleMapsScraper:
             
             for card in review_cards:
                 try:
-                    card_text = card.text.strip()
+                    card_text = (card.get_attribute("textContent") or card.text or "").strip()
                     if not card_text:
                         continue
 
@@ -300,7 +299,7 @@ class GoogleMapsScraper:
                     for sel in [".d4r55", "button.al6P8e", ".w8rJ2d", ".X43E2e", "div.fontTitleSmall"]:
                         try:
                             elem = card.find_element(By.CSS_SELECTOR, sel)
-                            txt = elem.text.strip()
+                            txt = (elem.get_attribute("textContent") or elem.text or "").strip()
                             if txt:
                                 author = txt
                                 break
@@ -334,7 +333,7 @@ class GoogleMapsScraper:
                     date_str = ""
                     try:
                         date_elem = card.find_element(By.CSS_SELECTOR, ".rRecb, .u4R4fd")
-                        date_str = date_elem.text.strip()
+                        date_str = (date_elem.get_attribute("textContent") or date_elem.text or "").strip()
                     except Exception:
                         pass
 
@@ -343,20 +342,25 @@ class GoogleMapsScraper:
                         if date_match:
                             date_str = date_match.group(1)
 
-                    # 리뷰 원문 추출
+                    # 리뷰 원문 추출 (textContent 기반 100% 완전 파싱)
                     review_text = ""
                     try:
-                        text_elem = card.find_element(By.CSS_SELECTOR, ".My5Wv, .wi80bf")
-                        review_text = text_elem.text.strip()
-                        review_text = re.sub(r"\(Google 제공 번역\)\s*", "", review_text)
-                        review_text = re.sub(r"\(원본\)\s*", "", review_text)
+                        text_spans = card.find_elements(By.CSS_SELECTOR, "span.wiI7pd, span.wi80bf, div.My5Wv, .My5Wv")
+                        for s in text_spans:
+                            t_txt = (s.get_attribute("textContent") or s.get_attribute("innerText") or s.text or "").strip()
+                            t_txt = re.sub(r"\(Google 제공 번역\)\s*", "", t_txt)
+                            t_txt = re.sub(r"\(원본\)\s*", "", t_txt)
+                            t_txt = re.sub(r"Google 제공 번역\s*・\s*원본 보기\(.*?\)", "", t_txt)
+                            t_txt = t_txt.strip()
+
+                            if t_txt and not t_txt.startswith("Google 제공 번역") and t_txt not in ["공유", "좋아요", "수정", "답글", "원본 보기", "자세히 보기"]:
+                                review_text = t_txt
+                                break
                     except Exception:
                         pass
 
-                    if not review_text and "\n" in card_text:
-                        lines = card_text.split("\n")
-                        if len(lines) >= 3:
-                            review_text = lines[-1].strip()
+                    if not review_text:
+                        review_text = "(별점 전용 리뷰)"
 
                     reviews_data.append({
                         "place_id": place_id,
@@ -378,7 +382,7 @@ class GoogleMapsScraper:
             if len(reviews_data) >= max_reviews:
                 break
 
-            # 스크롤 내리기 (scrollHeight 지점까지 내리기)
+            # 스크롤 내리기 (scrollTop = scrollHeight)
             if scrollable_div:
                 self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scrollable_div)
             else:
