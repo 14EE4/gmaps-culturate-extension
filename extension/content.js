@@ -949,43 +949,22 @@
 
   function scheduleRatingRetry(data, isMock) {
     clearRetryTimers();
-    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms, 3500ms 시점에 retry
-    const delays = [300, 700, 1200, 2000, 3500];
+    // DOM 로딩 지연 대응: 500ms, 1500ms 시점에 1회성 마이너 텍스트만 보완 (재렌더링 차단)
+    const delays = [500, 1500];
     delays.forEach(delay => {
       const timerId = setTimeout(() => {
-        if (!isEnabled || !shadowRoot) return;
+        if (!isEnabled || !shadowRoot || !data) return;
         const currentDOMRating = extractRatingFromDOM();
         if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
           applyDOMRating(data);
-          renderSidebar(data, isMock);
         }
-        extractNativeKoreanReviewsFromDOM();
-
-        // 장소명, 주소 또는 카테고리가 뒤늦게 렌더링된 경우 업데이트
         const freshAddr = extractAddressFromDOM();
-        let isAddrUpdated = false;
         if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
           data.address = freshAddr;
-          isAddrUpdated = true;
         }
-
         const freshCat = extractCategoryFromDOM();
         if (freshCat && (!data.category || data.category === 'Restaurant, Point of Interest')) {
           data.category = freshCat;
-          isAddrUpdated = true;
-        }
-
-        if (data.place_name && data.place_name.startsWith('장소 (')) {
-          const freshName = extractPlaceNameFromDOM();
-          if (freshName && !freshName.startsWith('장소 (')) {
-            data.place_name = freshName;
-            currentPlaceName = freshName;
-            isAddrUpdated = true;
-          }
-        }
-
-        if (isAddrUpdated) {
-          renderSidebar(data, isMock);
         }
       }, delay);
       retryTimers.push(timerId);
@@ -1093,6 +1072,16 @@
     }
   }
 
+  function isCheesecakeTarget(gmapId, placeName) {
+    const url = (window.location.href || '').toLowerCase();
+    const name = (placeName || '').toLowerCase();
+    const id = (gmapId || '').toLowerCase();
+    return id.includes('0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5') ||
+           name.includes('cheesecake factory') ||
+           name.includes('치즈케익') ||
+           url.includes('cheesecake');
+  }
+
   async function fetchCulturalAnalysis(gmapId, placeName) {
     // 1. Team-provided extension_data.json & mvp_payload.json first
     await loadExtensionData();
@@ -1113,16 +1102,10 @@
         console.log(`[GMap Review Decoder] 🚫 [Tier 3 No Past Data Available] gmap_id: ${gmapId}`);
       }
 
-      if (mvpPayload && mvpPayload[gmapId]) {
-        console.log(`[GMap Review Decoder] 📦 [Payload Active] Found s text in mvp_payload.json for gmap_id: ${gmapId}`);
-      } else {
-        console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No s text in mvp_payload.json for gmap_id: ${gmapId}`);
-      }
-
       const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
 
       // Check Debug Mode Override for The Cheesecake Factory
-      if (isDebugMode && (gmapId === '0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5' || (placeName && placeName.toLowerCase().includes('cheesecake factory')))) {
+      if (isDebugMode && isCheesecakeTarget(gmapId, placeName)) {
         const csvReviews = await loadCheesecakeReviews();
         if (csvReviews && csvReviews.length > 0) {
           analysisData.native_korean_reviews = csvReviews;
@@ -1158,7 +1141,7 @@
     const fallbackResolved = resolve(gmapId, googleRating);
     const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
 
-    if (isDebugMode && (gmapId === '0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5' || (placeName && placeName.toLowerCase().includes('cheesecake factory')))) {
+    if (isDebugMode && isCheesecakeTarget(gmapId, placeName)) {
       const csvReviews = await loadCheesecakeReviews();
       if (csvReviews && csvReviews.length > 0) {
         fallbackData.native_korean_reviews = csvReviews;
@@ -1590,25 +1573,8 @@
       return;
     }
 
-    // 이미 처리된 장소인 경우에도, DOM 평점 및 한국어 리뷰가 뒤늦게 표시되었는지 동적 파싱
+    // 이미 처리된 동일한 장소인 경우 무한 새로고침(깜빡임) 차단
     if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
-      const isRatingUpdated = applyDOMRating(currentAnalysisData);
-      extractNativeKoreanReviewsFromDOM();
-
-      // 장소 이름이 처음에 '장소 (0x...)' Fallback으로 생성되었다면 새로 감지된 장소명으로 업데이트
-      let isNameUpdated = false;
-      if (currentAnalysisData.place_name && (currentAnalysisData.place_name.startsWith('장소 (') || currentAnalysisData.place_name.startsWith('Selected Place ('))) {
-        const freshPlaceName = extractPlaceNameFromDOM();
-        if (freshPlaceName && !freshPlaceName.startsWith('장소 (') && !freshPlaceName.startsWith('Selected Place (')) {
-          currentAnalysisData.place_name = freshPlaceName;
-          currentPlaceName = freshPlaceName;
-          isNameUpdated = true;
-        }
-      }
-
-      if (isRatingUpdated || isNameUpdated) {
-        renderSidebar(currentAnalysisData, currentIsMock);
-      }
       return;
     }
 
