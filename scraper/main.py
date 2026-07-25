@@ -150,8 +150,50 @@ class GoogleMapsScraper:
 
         return place_name or "restaurant"
 
+    def ensure_reviews_tab(self, url: str) -> None:
+        """리뷰 탭 접속 상태 보장 (미접속 시 탭 클릭 및 데이터 로딩 보장)"""
+        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
+        cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+        if len(cards) > 0:
+            return
+
+        # 1. 탭 버튼 클릭 시도 (Reviews / 리뷰 탭)
+        tab_selectors = [
+            "button[data-tab-index='1']",
+            "div[role='tablist'] button:nth-child(2)",
+            "button[aria-label*='reviews']",
+            "button[aria-label*='리뷰']",
+            "button.hh2ftd"
+        ]
+        
+        try:
+            tabs = self.driver.find_elements(By.CSS_SELECTOR, ", ".join(tab_selectors))
+            for b in tabs:
+                if b.is_displayed():
+                    self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
+                    self.driver.execute_script("arguments[0].click();", b)
+                    time.sleep(2.5)
+                    cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+                    if len(cards) > 0:
+                        return
+        except Exception:
+            pass
+
+        # 2. URL !9m1!1b1 보정 접속 시도
+        curr_url = self.driver.current_url
+        if "!9m1!1b1" not in curr_url:
+            if "data=" in curr_url:
+                target_url = curr_url.replace("data=", "data=!9m1!1b1")
+            else:
+                target_url = url
+            try:
+                self.driver.get(target_url)
+                time.sleep(2)
+            except Exception:
+                pass
+
     def extract_total_reviews_info(self) -> tuple[str, int | None]:
-        """식당 전체 리뷰 수 문자열 및 수량(정수) 파싱 (최대 6초 동적 재시도 대기)"""
+        """식당 전체 리뷰 수 문자열 및 수량(정수) 파싱 (동적 재시도 대기)"""
         total_rev_count_str = ""
         total_available_num = None
         
@@ -236,6 +278,9 @@ class GoogleMapsScraper:
     def scrape(self, url: str, max_reviews: int = 100, pre_extracted_info: tuple = None) -> tuple[pd.DataFrame, str]:
         card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
 
+        # 리뷰 탭 접속 보장
+        self.ensure_reviews_tab(url)
+
         # 1. Place ID 및 식당 이름 추출
         place_id = self.extract_place_id(url)
         print(f"[+] Extracted Place ID: {place_id}")
@@ -271,33 +316,7 @@ class GoogleMapsScraper:
         else:
             print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {target_reviews}개)...")
 
-        # 3. 리뷰 탭 이동 (리뷰 카드가 미감지된 경우)
-        existing_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
-        
-        if len(existing_cards) > 0:
-            print(f"[+] 이미 리뷰 페이지에 직접 접속되어 있습니다 (초기 감지 리뷰: {len(existing_cards)}개). 탭 클릭을 생략합니다.")
-        else:
-            print("[+] 리뷰 탭 상태 감지 및 이동 중...")
-            click_candidates = self.driver.find_elements(By.CSS_SELECTOR, "button[role='tab'], button.hh2ftd, button[data-tab-index], button[aria-label*='reviews'], button[aria-label*='리뷰'], span.ce3eFc")
-            for b in click_candidates:
-                try:
-                    txt = (b.get_attribute("textContent") or b.get_attribute("innerText") or b.text or "").strip()
-                    aria = (b.get_attribute("aria-label") or "").strip()
-                    combined = f"{aria} {txt}".lower()
-                    
-                    if ("리뷰" in combined or "review" in combined or "reviews" in combined) and b.is_displayed():
-                        if ("about" in combined or "정보" in combined or "개요" in combined or "overview" in combined) and "review" not in combined and "리뷰" not in combined:
-                            continue
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
-                        self.driver.execute_script("arguments[0].click();", b)
-                        clean_lbl = re.sub(r'[\uE000-\uF8FF]', '', txt or aria).strip()
-                        print(f"[+] 리뷰 탭/버튼 클릭 완료 ({clean_lbl if clean_lbl else '리뷰 영역'})")
-                        time.sleep(2.5)
-                        break
-                except Exception:
-                    pass
-
-        # 4. 스크롤 컨테이너 감지
+        # 3. 스크롤 컨테이너 감지
         scrollable_div = None
         time.sleep(1)
 
@@ -540,14 +559,11 @@ def main():
 
         print(f"[+] Google Maps 접속 중: {target_url}")
         scraper.driver.get(target_url)
-        
-        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
-        try:
-            scraper.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, f"{card_selectors}, button[role='tab'], div.jANrlb")))
-        except Exception:
-            pass
-        time.sleep(1.5)
+        time.sleep(2)
         scraper.handle_consent_popups()
+        
+        # 리뷰 탭 자동 전환 및 데이터 로딩 보장
+        scraper.ensure_reviews_tab(url)
 
         place_name = scraper.extract_place_name(url)
         total_rev_count_str, total_available_num = scraper.extract_total_reviews_info()
