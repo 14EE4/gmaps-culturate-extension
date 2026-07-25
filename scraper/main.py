@@ -414,6 +414,7 @@ class GoogleMapsScraper:
             if scrollable_div:
                 try:
                     self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", scrollable_div)
+                    self.driver.execute_script("arguments[0].scrollBy(0, 3000);", scrollable_div)
                 except Exception:
                     pass
 
@@ -421,6 +422,7 @@ class GoogleMapsScraper:
                 divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf")
                 for d in divs:
                     self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", d)
+                    self.driver.execute_script("arguments[0].scrollBy(0, 3000);", d)
             except Exception:
                 pass
 
@@ -430,7 +432,7 @@ class GoogleMapsScraper:
             current_card_count = len(review_cards)
             if current_card_count == last_card_count:
                 same_count_retries += 1
-                if same_count_retries >= 5:
+                if same_count_retries >= 8:
                     print("[*] 더 이상 새로 로딩되는 리뷰가 없어 수집을 마칩니다.")
                     break
             else:
