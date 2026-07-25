@@ -1053,13 +1053,23 @@
       '가성비': '💰 가성비',
       '분위기': '✨ 분위기',
       '웨이팅': '⏳ 웨이팅',
-      '맵기': '🌶️ 맵기',
-      '간(염도)': '🧂 간(염도)',
-      '양': '🥩 양/푸짐함',
       '위생': '🧹 위생',
       '주차': '🚗 주차'
     };
     const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
+    const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
+    const levelChips = [];
+    if (aspectLevels) {
+      if (aspectLevels.spiciness) {
+        levelChips.push(`🌶️ 맵기 ${aspectLevels.spiciness * 20}%`);
+      }
+      if (aspectLevels.saltiness) {
+        levelChips.push(`🧂 간 ${aspectLevels.saltiness * 20}%`);
+      }
+      if (aspectLevels.portion) {
+        levelChips.push(`🥩 양 ${aspectLevels.portion * 20}%`);
+      }
+    }
 
     // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
     const existingSidebar = rootEl.querySelector('#gmap-decoder-sidebar');
@@ -1095,12 +1105,15 @@
           </div>
 
           <!-- User Preferences Highlight -->
-          ${preferredList.length > 0 ? `
+          ${(preferredList.length > 0 || levelChips.length > 0) ? `
             <div class="user-preferences-box">
               <div class="preferences-title">🎯 사용자 맞춤 관심 취향</div>
               <div class="pref-tags-list">
                 ${preferredList.map(aspect => `
                   <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
+                `).join('')}
+                ${levelChips.map(chip => `
+                  <span class="pref-tag-chip level-chip">${escapeHTML(chip)}</span>
                 `).join('')}
               </div>
             </div>

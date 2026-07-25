@@ -211,6 +211,13 @@
   background: rgba(168, 85, 247, 0.35);
 }
 
+.pref-tag-chip.level-chip {
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(236, 72, 153, 0.4);
+  color: #f472b6;
+  font-weight: 700;
+}
+
 /* Rating Comparison Badge Card */
 .ratings-container {
   display: grid;
