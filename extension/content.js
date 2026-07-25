@@ -22,13 +22,18 @@
   let showAllReviews = false;
 
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
+  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
     // CAVA (USC Village LA) - Main Test Sample
     '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
       gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
       place_name: 'CAVA (USC Village)',
+      address: '3201 S Hoover St Suite 1840, Los Angeles, CA 90089',
+      category: 'Mediterranean restaurant, Salad shop, Fast casual',
       local_rating: 4.4,
       korean_rating: 3.8,
+      kr_avg: 3.8,
+      kr_count: 15,
       culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
       metrics: {
         taste: { local: 4.5, kr: 3.8 },
@@ -38,14 +43,17 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Fully customizable fresh Mediterranean bowl"',
           meaning: '서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
         },
         {
+          tag_id: 2,
           literal: '"Pita chips and Crazy Feta are top tier"',
           meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
         },
         {
+          tag_id: 3,
           literal: '"Super fast line even when crowded"',
           meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
         }
@@ -56,8 +64,12 @@
     '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3': {
       gmap_id: '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3',
       place_name: 'Sun Nong Dan (선농단 LA)',
+      address: '3470 W 6th St #7, Los Angeles, CA 90020',
+      category: 'Korean restaurant, Galbi-jjim, Soup',
       local_rating: 4.6,
       korean_rating: 4.4,
+      kr_avg: 4.4,
+      kr_count: 22,
       culture_summary: '갈비찜과 치즈 사리의 높은 완성도. 현지인과 한국인 모두 최상위 평가이나 극심한 대기 시간과 주차 난이도에 엄격함.',
       metrics: {
         taste: { local: 4.8, kr: 4.7 },
@@ -67,10 +79,12 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Portions are huge, order for groups"',
           meaning: '치즈 갈비찜 소자도 2-3인용. 양이 매우 많아 가성비 양호함.'
         },
         {
+          tag_id: 2,
           literal: '"Waited 45 mins, staff is super rushed"',
           meaning: '회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함.'
         }
@@ -81,8 +95,12 @@
     '0x80c2c7c594236e71:0x5e2b036577317ba9': {
       gmap_id: '0x80c2c7c594236e71:0x5e2b036577317ba9',
       place_name: 'BCD Tofu House (북창동순두부)',
+      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
+      category: 'Korean restaurant, Tofu house, Korean BBQ',
       local_rating: 4.5,
       korean_rating: 3.9,
+      kr_avg: 3.9,
+      kr_count: 18,
       culture_summary: '외국인에게는 표준 K-Food 기준점이나, 한국인 기준으로는 본국 순두부 전문점 대비 깊은 국물 맛이 다소 아쉽고 과도한 팁이 부담됨.',
       metrics: {
         taste: { local: 4.6, kr: 3.9 },
@@ -92,6 +110,7 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Authentic Korean comfort food"',
           meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
         }
@@ -102,8 +121,12 @@
     '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
       gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
       place_name: '북창동 순두부 (BCD Tofu House LA)',
+      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
+      category: 'Korean restaurant, Soft Tofu stew',
       local_rating: 4.5,
       korean_rating: 4.0,
+      kr_avg: 4.0,
+      kr_count: 20,
       culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
       metrics: {
         taste: { local: 4.6, kr: 4.0 },
@@ -113,10 +136,12 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Best BCD Tofu in K-Town LA"',
           meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
         },
         {
+          tag_id: 2,
           literal: '"Authentic Korean spicy tofu stew"',
           meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
         }
@@ -127,8 +152,12 @@
     '0x89c259837920ab4d:0xcf20c1507df05e54': {
       gmap_id: '0x89c259837920ab4d:0xcf20c1507df05e54',
       place_name: 'Peter Luger Steak House',
+      address: '178 Broadway, Brooklyn, NY 11211',
+      category: 'Steak house, American restaurant',
       local_rating: 4.4,
       korean_rating: 3.7,
+      kr_avg: 3.7,
+      kr_count: 12,
       culture_summary: '역사적인 드라이에이징 스테이크 전문점. 구글 평점은 높으나 Cash Only(현금 결제 전용) 및 고압적인 서비스로 한국인 가성비 평가 하락.',
       metrics: {
         taste: { local: 4.7, kr: 4.2 },
@@ -138,16 +167,63 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '"Classic waiter service with Brooklyn attitude"',
           meaning: '친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음.'
         },
         {
+          tag_id: 2,
           literal: '"Cash or debit only, be prepared!"',
           meaning: '신용카드 불가로 현금 미소지 시 큰 불편 유발.'
         }
       ]
     }
   };
+
+  /**
+   * 1. 사전 분석 데이터 구조의 가변성 대응 (Adapter Pattern)
+   * @param {Object} pastData
+   * @returns {{ pastKrCount: number, pastKrRating: number }}
+   */
+  function extractPastKrData(pastData) {
+    if (!pastData) return { pastKrCount: 0, pastKrRating: 0 };
+    const pastKrCount = pastData?.kr_count ?? pastData?.passed_min_reviews ?? pastData?.korean_review_count ?? (pastData?.korean_rating ? 15 : 0);
+    const pastKrRating = pastData?.kr_avg ?? pastData?.avg_rating ?? pastData?.korean_rating ?? 0;
+    return { pastKrCount: Number(pastKrCount) || 0, pastKrRating: Number(pastKrRating) || 0 };
+  }
+
+  /**
+   * 2. 사전 분석 데이터(~21.09)와 실시간 DOM 데이터(21.09~)의 한국인 평점 가중 통합 계산 (Weighted Average)
+   * @param {Object} pastData
+   * @param {Array<{rating: number|null}>} liveKrReviews
+   * @returns {{ combinedRating: number|null, totalKrCount: number, pastKrCount: number, liveKrCount: number, pastKrRating: number, liveKrRating: number|null }}
+   */
+  function calculateCombinedKrRating(pastData, liveKrReviews = []) {
+    const { pastKrCount, pastKrRating } = extractPastKrData(pastData);
+
+    const validLiveReviews = (liveKrReviews || []).filter(r => typeof r.rating === 'number' && !isNaN(r.rating) && r.rating > 0);
+    const liveKrCount = validLiveReviews.length;
+    const liveKrScoreSum = validLiveReviews.reduce((sum, r) => sum + r.rating, 0);
+    const liveKrRating = liveKrCount > 0 ? parseFloat((liveKrScoreSum / liveKrCount).toFixed(1)) : null;
+
+    const pastKrScoreSum = pastKrRating * pastKrCount;
+    const totalKrCount = pastKrCount + liveKrCount;
+
+    let combinedRating = null;
+    if (totalKrCount > 0) {
+      const rawAvg = (pastKrScoreSum + liveKrScoreSum) / totalKrCount;
+      combinedRating = parseFloat(rawAvg.toFixed(1));
+    }
+
+    return {
+      combinedRating,
+      totalKrCount,
+      pastKrCount,
+      liveKrCount,
+      pastKrRating,
+      liveKrRating
+    };
+  }
 
   /**
    * 1. URL 패턴에서 gmap_id 정규식 추출
@@ -516,15 +592,21 @@
 
         currentAnalysisData.native_korean_reviews = reviews;
 
-        // 실제 탐지된 한국인 리뷰 평점 평균 계산 및 반영
-        const ratedReviews = reviews.filter(r => typeof r.rating === 'number' && !isNaN(r.rating));
-        if (ratedReviews.length > 0) {
-          const sum = ratedReviews.reduce((acc, r) => acc + r.rating, 0);
-          const avgKrRating = parseFloat((sum / ratedReviews.length).toFixed(1));
-          currentAnalysisData.korean_rating = avgKrRating;
+        // 사전 분석 데이터(~21.09)와 실시간 DOM 데이터의 가중 통합 계산 (Weighted Average)
+        const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
+        if (combined.combinedRating !== null) {
+          currentAnalysisData.korean_rating = combined.combinedRating;
+          currentAnalysisData.total_kr_count = combined.totalKrCount;
+          currentAnalysisData.past_kr_count = combined.pastKrCount;
+          currentAnalysisData.live_kr_count = combined.liveKrCount;
           currentAnalysisData.hasKoreanData = true;
           currentAnalysisData.isRealKoreanReviewsReflected = true;
-          currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${ratedReviews.length}건의 평점 평균(★ ${avgKrRating})이 반영되었습니다.`;
+
+          if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
+            currentAnalysisData.culture_summary = `사전 데이터 ${combined.pastKrCount}건(★ ${combined.pastKrRating})과 실시간 추출 리뷰 ${combined.liveKrCount}건(★ ${combined.liveKrRating})이 가중 통합된 평균 평점(★ ${combined.combinedRating})입니다.`;
+          } else if (combined.liveKrCount > 0) {
+            currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${combined.liveKrCount}건의 평점 평균(★ ${combined.combinedRating})이 반영되었습니다.`;
+          }
         }
 
         const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
@@ -757,6 +839,7 @@
       },
       nuance_tags: [
         {
+          tag_id: 1,
           literal: '💬 한국인 리뷰 미감지 장소',
           meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
         }
@@ -839,7 +922,8 @@
           <div class="place-card">
             <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
             <div class="place-meta">
-              <span>📍 Google Maps Place</span>
+              <span>📍 ${escapeHTML(data.address || 'Google Maps Place')}</span>
+              ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
             </div>
             ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
           </div>
@@ -866,7 +950,7 @@
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `격차 ${deltaSign}` : '데이터 수집 중'}
+                ${hasKoreanData ? `격차 ${deltaSign}${data.total_kr_count ? ` (총 ${data.total_kr_count}건)` : (data.kr_count ? ` (총 ${data.kr_count}건)` : '')}` : '데이터 수집 중'}
               </div>
             </div>
           </div>
