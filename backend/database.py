@@ -52,8 +52,12 @@ def get_place_analysis(gmap_id: Optional[str], place_name: Optional[str], target
     return {
         "gmap_id": gmap_id or "0x80c0000000000000:0x0000000000000000",
         "place_name": name,
+        "address": "Google Maps Location",
+        "category": "Restaurant, Point of Interest",
         "local_rating": 4.5,
         "korean_rating": 3.8,
+        "kr_avg": 3.8,
+        "kr_count": 15,
         "target_culture": target_culture,
         "culture_summary": f"FastAPI 백엔드 분석 완료: {name}의 현지 평점(4.5) 대비 한국인 보정 평점(3.8)은 간의 세기와 가격 대비 만족도 차이에 기반합니다.",
         "metrics": {
@@ -64,10 +68,12 @@ def get_place_analysis(gmap_id: Optional[str], place_name: Optional[str], target
         },
         "nuance_tags": [
             {
+                "tag_id": 1,
                 "literal": "#FastAPI 서버 연동 성공",
                 "meaning": f"gmap_id={gmap_id or 'Fallback'} 기준 실시간 백엔드 분석 데이터입니다."
             },
             {
+                "tag_id": 2,
                 "literal": "#간이 다소 짠 편",
                 "meaning": "미국/현지 레시피 특성상 소금간이 세므로 주방 주문 시 'Less Salt' 요청 권장."
             }

@@ -827,8 +827,12 @@
     return {
       gmap_id: gmapId || `0x${hash.toString(16)}:0x${(hash * 31).toString(16)}`,
       place_name: displayName,
+      address: 'Google Maps Location',
+      category: 'Restaurant, Point of Interest',
       local_rating: parseFloat(localRating),
       korean_rating: null,
+      kr_avg: null,
+      kr_count: 0,
       hasKoreanData: false,
       culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
       metrics: {
