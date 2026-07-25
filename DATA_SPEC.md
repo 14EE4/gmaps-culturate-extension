@@ -88,6 +88,11 @@ $$\text{combinedRating} = \frac{(\text{pastKrRating} \times \text{pastKrCount}) 
    - **`cleanAddressText`**: Google Material Symbols 아이콘 폰트 문자(`\uE000-\uF8FF`) 제거로 네모 박스(`□`) 깨짐 차단
 2. **카테고리 파싱 (`extractCategoryFromDOM`)**:
    - `button.DkEaL` 및 `button[jsaction*="category"]` 파싱 (예: `"샌드위치 가게"`)
+3. **순수 리뷰 본문 전용 노드 타겟 파싱 (`bodyEl`)**:
+   - `card.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]')`를 조준하여 작성자 헤더 및 하단 반응 버튼 노드를 파싱 시작 지점부터 분리
+4. **리뷰 텍스트 세탁 및 하단 액션 블록 수술 절단 (`cleanReviewText`)**:
+   - 한글 단어 경계(`\b`) 버그 수술 조치: `\b` 대신 한글 전용 부정형 전방탐색 `(?![가-힣a-zA-Z])` 적용
+   - `\n\n1\n\n공유`, ` 1 공유 -`, `좋아요 공유` 및 유니코드 아이콘(``, ``) 찌꺼기 100% 완전 정제
 
 ---
 
