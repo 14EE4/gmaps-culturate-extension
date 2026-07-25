@@ -160,6 +160,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const btnReset = document.getElementById('btn-reset');
+
+  // Reset all 8 preferences to 3 (Balanced / Neutral)
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      if (weightT) weightT.value = 3;
+      if (weightS) weightS.value = 3;
+      if (weightV) weightV.value = 3;
+      if (weightA) weightA.value = 3;
+
+      if (tasteAuth) tasteAuth.value = 3;
+      if (tasteGreasy) tasteGreasy.value = 3;
+      if (tasteSpicy) tasteSpicy.value = 3;
+      if (tasteHerbs) tasteHerbs.value = 3;
+
+      updateBadges();
+      savePreferences();
+
+      btnReset.textContent = 'Reset Complete! ✓ (All set to 3/5)';
+      btnReset.style.borderColor = '#22c55e';
+      btnReset.style.color = '#86efac';
+      setTimeout(() => {
+        btnReset.textContent = '🔄 Reset Preferences (All to 3/5)';
+        btnReset.style.borderColor = '';
+        btnReset.style.color = '';
+      }, 1500);
+    });
+  }
+
   // Save settings on button click
   btnSave.addEventListener('click', savePreferences);
   if (toggleEnabled) toggleEnabled.addEventListener('change', savePreferences);
