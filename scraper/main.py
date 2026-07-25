@@ -197,7 +197,8 @@ class GoogleMapsScraper:
 
         # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지)
         print("[+] 리뷰 탭 상태 감지 및 이동 중...")
-        existing_cards = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
+        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
+        existing_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
         
         if len(existing_cards) > 0:
             print(f"[+] 이미 리뷰 페이지에 직접 접속되어 있습니다 (초기 감지 리뷰: {len(existing_cards)}개). 탭 클릭을 생략합니다.")
@@ -205,17 +206,26 @@ class GoogleMapsScraper:
             tab_clicked = False
             time.sleep(2)
             
-            for sel in ["button[data-tab-index='1']", "button.hh2ftd", "button[aria-label*='리뷰']", "button[aria-label*='Reviews']", "button[aria-label*='reviews']"]:
+            tab_selectors = [
+                "button.hh2ftd[data-tab-index='1']",
+                "button[aria-label*='리뷰']",
+                "button[aria-label*='Reviews']",
+                "button[aria-label*='reviews']",
+                "div[role='tablist'] button:nth-child(2)"
+            ]
+
+            for sel in tab_selectors:
                 try:
                     btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
                     for b in btns:
                         label = (b.get_attribute("aria-label") or "") + " " + (b.get_attribute("textContent") or b.text or "")
-                        if ("리뷰" in label or "Reviews" in label or "reviews" in label.lower()) and b.is_displayed():
+                        label_lower = label.lower()
+                        if ("리뷰" in label or "reviews" in label_lower or "review" in label_lower or b.get_attribute("data-tab-index") == "1") and b.is_displayed():
                             self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
                             self.driver.execute_script("arguments[0].click();", b)
                             tab_clicked = True
-                            print(f"[+] 리뷰 탭 클릭 완료 ({label.strip()})")
-                            time.sleep(4)
+                            print(f"[+] 리뷰 탭 클릭 완료 ({label.strip() if label.strip() else sel})")
+                            time.sleep(3)
                             break
                     if tab_clicked:
                         break
@@ -229,35 +239,38 @@ class GoogleMapsScraper:
         scrollable_div = None
         time.sleep(2)
 
-        cards_for_scroll = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
-        if cards_for_scroll:
-            try:
-                scrollable_div = self.driver.execute_script(
-                    "let el = arguments[0]; "
-                    "while (el && el !== document.body) { "
-                    "  if (el.scrollHeight > el.clientHeight && el.clientHeight > 100) return el; "
-                    "  el = el.parentElement; "
-                    "} "
-                    "return null;",
-                    cards_for_scroll[0]
-                )
-            except Exception:
-                pass
-
-        if not scrollable_div:
-            try:
-                divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf.D6fe2e, div.m6QEdf")
-                for d in divs:
-                    try:
-                        s_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
-                        c_h = self.driver.execute_script("return arguments[0].clientHeight", d)
-                        if s_h and c_h and (s_h - c_h > 50) and d.is_displayed():
-                            scrollable_div = d
+        # 5-1. 후보 컨테이너 탐색 (div.m6QEwb, div.DkB4fd 등)
+        try:
+            container_candidates = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEwb, div.DkB4fd, div.m6QEwb.DkB4fd, div.m6QEdf.D6fe2e, div.m6QEdf")
+            for cand in container_candidates:
+                try:
+                    inner_cards = cand.find_elements(By.CSS_SELECTOR, card_selectors)
+                    aria_lbl = cand.get_attribute("aria-label") or ""
+                    if inner_cards or aria_lbl or "리뷰" in aria_lbl or "reviews" in aria_lbl.lower():
+                        if cand.is_displayed():
+                            scrollable_div = cand
                             break
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # 5-2. 카드 기준 부모 스크롤 컨테이너 탐색
+        if not scrollable_div:
+            cards_for_scroll = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+            if cards_for_scroll:
+                try:
+                    scrollable_div = self.driver.execute_script(
+                        "let el = arguments[0]; "
+                        "while (el && el !== document.body) { "
+                        "  if (el.scrollHeight > el.clientHeight && el.clientHeight > 100) return el; "
+                        "  el = el.parentElement; "
+                        "} "
+                        "return null;",
+                        cards_for_scroll[0]
+                    )
+                except Exception:
+                    pass
 
         if scrollable_div:
             print("[+] 리뷰 무한 스크롤 전용 컨테이너를 정상 감지하였습니다.")
@@ -281,7 +294,7 @@ class GoogleMapsScraper:
                 pass
 
             # 리뷰 카드 추출
-            review_cards = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
+            review_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
             
             for card in review_cards:
                 try:
