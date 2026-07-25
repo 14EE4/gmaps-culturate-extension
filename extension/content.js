@@ -929,26 +929,36 @@
 
         currentAnalysisData.native_korean_reviews = reviews;
 
-        // 사전 분석 데이터(~21.09)와 실시간 DOM 데이터의 가중 통합 계산 (Weighted Average)
-        const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
-        if (combined.combinedRating !== null) {
-          currentAnalysisData.korean_rating = combined.combinedRating;
-          currentAnalysisData.total_kr_count = combined.totalKrCount;
-          currentAnalysisData.past_kr_count = combined.pastKrCount;
-          currentAnalysisData.live_kr_count = combined.liveKrCount;
-          currentAnalysisData.hasKoreanData = true;
-          currentAnalysisData.isRealKoreanReviewsReflected = true;
+        // 실시간 추출된 한국인 원문 리뷰가 존재하는 경우에만 가중결합 수행
+        if (reviews.length > 0) {
+          const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
+          if (combined.combinedRating !== null) {
+            currentAnalysisData.korean_rating = combined.combinedRating;
+            currentAnalysisData.total_kr_count = combined.totalKrCount;
+            currentAnalysisData.past_kr_count = combined.pastKrCount;
+            currentAnalysisData.live_kr_count = combined.liveKrCount;
+            currentAnalysisData.hasKoreanData = true;
+            currentAnalysisData.isRealKoreanReviewsReflected = true;
 
-          if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `사전 데이터 ${combined.pastKrCount}건(★ ${combined.pastKrRating})과 실시간 추출 리뷰 ${combined.liveKrCount}건(★ ${combined.liveKrRating})이 가중 통합된 평균 평점(★ ${combined.combinedRating})입니다.`;
-          } else if (combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${combined.liveKrCount}건의 평점 평균(★ ${combined.combinedRating})이 반영되었습니다.`;
+            if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
+              currentAnalysisData.culture_summary = `Weighted average combining ${combined.pastKrCount} past reviews (★${combined.pastKrRating}) and ${combined.liveKrCount} live reviews (★${combined.liveKrRating}) → combined score ★${combined.combinedRating}.`;
+            } else if (combined.liveKrCount > 0) {
+              currentAnalysisData.culture_summary = `Live-extracted native Korean reviews: ${combined.liveKrCount} reviews averaged at ★${combined.combinedRating}.`;
+            }
+          }
+        } else {
+          // 실시간 한국어 리뷰가 0건인 경우, resolved 규칙(업종 보정/실측)에 의해 계산된 보정 평점을 훼손하지 않고 100% 보존
+          if (currentAnalysisData.resolved) {
+            if (currentAnalysisData.resolved.tier === 'category') {
+              currentAnalysisData.korean_rating = clamp(currentAnalysisData.local_rating + currentAnalysisData.resolved.rel_gap, 0, 5);
+            } else if (currentAnalysisData.resolved.tier === 'measured') {
+              currentAnalysisData.korean_rating = currentAnalysisData.resolved.entry.ko_mean;
+            }
           }
         }
 
         const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
 
-        // 실제로 데이터가 변경되었을 때만 사이드바 UI 동적 갱신 (불필요한 re-render 및 깜빡임 차단)
         if (isDataChanged && shadowRoot) {
           renderSidebar(currentAnalysisData, currentIsMock);
         }
