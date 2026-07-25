@@ -164,11 +164,16 @@
 
   function buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating) {
     const payloadItem = mvpPayload ? mvpPayload[gmapId] : null;
+    const hasPayload = !!payloadItem;
     const indexEntry = resolved.indexEntry || (extensionData?.place_index ? extensionData.place_index[gmapId] : null);
     let localRating = googleRating || 4.0;
     let koreanRating = null;
     let cultureSummary = '';
     let statusBadge = '';
+
+    if (!hasPayload) {
+      console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No mvp_payload.json entry found for gmap_id: ${gmapId}`);
+    }
 
     if (resolved.tier === 'measured') {
       const p = resolved.entry;
@@ -191,7 +196,7 @@
       cultureSummary = `For ${resolved.category}, no significant rating difference was found between Korean and English reviews.`;
       statusBadge = 'No Category Difference';
     } else {
-      cultureSummary = payloadItem?.s || 'No past 2021 dataset analysis available for this location.';
+      cultureSummary = payloadItem?.s || '[Payload Unavailable] No past 2021 dataset analysis available for this location.';
       statusBadge = 'No Past Data';
     }
 
@@ -202,6 +207,7 @@
     return {
       gmap_id: gmapId,
       resolved: resolved,
+      has_payload: hasPayload,
       place_name: placeName || (resolved.entry?.name) || 'Selected Place',
       address: 'Google Maps Location',
       category: resolved.category || resolved.entry?.category || indexEntry?.c || 'Point of Interest',
@@ -223,7 +229,7 @@
         {
           tag_id: 1,
           literal: statusBadge || '💬 Cultural Review Analysis',
-          meaning: cultureSummary
+          meaning: cultureSummary + (!hasPayload ? ' (Note: Payload text missing for this place)' : '')
         }
       ]
     };
@@ -1169,10 +1175,14 @@
         console.log(`[GMap Review Decoder] 📊 [Tier 2 Category Estimate Used] gmap_id: ${gmapId}, category: "${resolved.category}", rel_gap: ${resolved.rel_gap}, adjusted: ${resolved.corrected}`);
       } else if (resolved.tier === 'category_ns') {
         console.log(`[GMap Review Decoder] ℹ️ [Tier 2 Category (No Significant Diff)] category: "${resolved.category}"`);
-      } else if (mvpPayload && mvpPayload[gmapId]) {
-        console.log(`[GMap Review Decoder] 📦 [MVP Payload Data Used] gmap_id: ${gmapId}`);
       } else {
         console.log(`[GMap Review Decoder] ⚠️ [Tier 3 No Dataset Match / Fallback] gmap_id: ${gmapId}`);
+      }
+
+      if (mvpPayload && mvpPayload[gmapId]) {
+        console.log(`[GMap Review Decoder] 📦 [Payload Active] Found s text in mvp_payload.json for gmap_id: ${gmapId}`);
+      } else {
+        console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No s text in mvp_payload.json for gmap_id: ${gmapId}`);
       }
 
       if (resolved.tier !== 'none' || (mvpPayload && mvpPayload[gmapId])) {
