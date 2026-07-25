@@ -1120,29 +1120,22 @@
 
     const indexEntry = data.index_entry || (data.gmap_id && extensionData?.place_index ? extensionData.place_index[data.gmap_id] : null);
 
-    const aspectEmojiMap = {
-      '맛': '🍱 Taste',
-      '서비스': '💁 Service',
-      '가성비': '💰 Value',
-      '분위기': '✨ Atmosphere',
-      '웨이팅': '⏳ Wait Time',
-      '위생': '🧹 Hygiene',
-      '주차': '🚗 Parking'
-    };
-    const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
-    const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
-    const levelChips = [];
-    if (aspectLevels) {
-      if (aspectLevels.spiciness) {
-        levelChips.push(`🌶️ Spiciness ${aspectLevels.spiciness * 20}%`);
-      }
-      if (aspectLevels.saltiness) {
-        levelChips.push(`🧂 Saltiness ${aspectLevels.saltiness * 20}%`);
-      }
-      if (aspectLevels.portion) {
-        levelChips.push(`🥩 Portion ${aspectLevels.portion * 20}%`);
-      }
-    }
+    const importanceWeights = (userProfile && userProfile.importanceWeights) ? userProfile.importanceWeights : { t: 5, s: 3, v: 4, a: 2 };
+    const tastePreferences = (userProfile && userProfile.tastePreferences) ? userProfile.tastePreferences : { authenticity: 5, greasiness: 3, spiciness: 4, herbs: 1 };
+
+    // Section A: High Importance Aspect Chips (Weights >= 4)
+    const weightChips = [];
+    if (importanceWeights.t >= 4) weightChips.push(`🍱 Taste (${importanceWeights.t}/5)`);
+    if (importanceWeights.s >= 4) weightChips.push(`💁 Service (${importanceWeights.s}/5)`);
+    if (importanceWeights.v >= 4) weightChips.push(`💰 Value (${importanceWeights.v}/5)`);
+    if (importanceWeights.a >= 4) weightChips.push(`✨ Atmosphere (${importanceWeights.a}/5)`);
+
+    // Section B: Overseas Food Adaptation Preferences Chips
+    const adaptationChips = [];
+    if (tastePreferences.authenticity) adaptationChips.push(`🏮 Local ${tastePreferences.authenticity * 20}%`);
+    if (tastePreferences.greasiness) adaptationChips.push(`🥑 Richness ${tastePreferences.greasiness * 20}%`);
+    if (tastePreferences.spiciness) adaptationChips.push(`🌶️ Spicy ${tastePreferences.spiciness * 20}%`);
+    if (tastePreferences.herbs) adaptationChips.push(`🌿 Herbs ${tastePreferences.herbs * 20}%`);
 
     const resolvedTier = data.resolved ? data.resolved.tier : 'none';
     let tierClass = 'none';
@@ -1206,16 +1199,16 @@
             <span class="status-text">${tierTitle}</span>
           </div>
 
-          <!-- User Preferences Highlight -->
-          ${(preferredList.length > 0 || levelChips.length > 0) ? `
+          <!-- User Preferences & Adaptation Profile Highlight -->
+          ${(weightChips.length > 0 || adaptationChips.length > 0) ? `
             <div class="user-preferences-box">
-              <div class="preferences-title">🎯 Your Preferences</div>
+              <div class="preferences-title">🎯 Your Preferences &amp; Adaptation Profile</div>
               <div class="pref-tags-list">
-                ${preferredList.map(aspect => `
-                  <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
+                ${weightChips.map(chip => `
+                  <span class="pref-tag-chip profile-chip-weight">${escapeHTML(chip)}</span>
                 `).join('')}
-                ${levelChips.map(chip => `
-                  <span class="pref-tag-chip level-chip">${escapeHTML(chip)}</span>
+                ${adaptationChips.map(chip => `
+                  <span class="pref-tag-chip level-chip profile-chip-adaptation">${escapeHTML(chip)}</span>
                 `).join('')}
               </div>
             </div>

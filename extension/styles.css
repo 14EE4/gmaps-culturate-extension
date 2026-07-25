@@ -695,5 +695,37 @@
 .formula-op { color: #94a3b8; font-weight: bold; }
 .formula-result { background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; padding: 3px 8px; border-radius: 6px; font-weight: bold; }
 
+/* Popup Section Divider & Subtitles */
+.section-divider {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  margin: 16px 0;
+}
+.section-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: #a855f7;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Glassmorphism Profile Chips in Sidebar Overlay */
+.profile-chip-adaptation {
+  background: rgba(168, 85, 247, 0.18);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #f0abfc;
+}
+.profile-chip-weight {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #c7d2fe;
+}
+
+
 
 
