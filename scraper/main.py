@@ -207,11 +207,10 @@ class GoogleMapsScraper:
             time.sleep(2)
             
             tab_selectors = [
-                "button.hh2ftd[data-tab-index='1']",
                 "button[aria-label*='리뷰']",
                 "button[aria-label*='Reviews']",
                 "button[aria-label*='reviews']",
-                "div[role='tablist'] button:nth-child(2)"
+                "button.hh2ftd"
             ]
 
             for sel in tab_selectors:
@@ -220,11 +219,12 @@ class GoogleMapsScraper:
                     for b in btns:
                         label = (b.get_attribute("aria-label") or "") + " " + (b.get_attribute("textContent") or b.text or "")
                         label_lower = label.lower()
-                        if ("리뷰" in label or "reviews" in label_lower or "review" in label_lower or b.get_attribute("data-tab-index") == "1") and b.is_displayed():
+                        if ("리뷰" in label or "reviews" in label_lower or "review" in label_lower) and b.is_displayed():
                             self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
                             self.driver.execute_script("arguments[0].click();", b)
                             tab_clicked = True
-                            print(f"[+] 리뷰 탭 클릭 완료 ({label.strip() if label.strip() else sel})")
+                            clean_lbl = re.sub(r'[\uE000-\uF8FF]', '', label).strip()
+                            print(f"[+] 리뷰 탭 클릭 완료 ({clean_lbl if clean_lbl else sel})")
                             time.sleep(3)
                             break
                     if tab_clicked:
@@ -453,24 +453,33 @@ class GoogleMapsScraper:
 def main():
     parser = argparse.ArgumentParser(description="구글 맵스 Place ID 및 리뷰 자동 수집 스크레이퍼")
     parser.add_argument("--url", type=str, help="구글 맵스 식당 URL")
-    parser.add_argument("--max-reviews", type=int, default=100, help="수집할 최대 리뷰 수 (기본값: 100)")
+    parser.add_argument("--max-reviews", type=int, default=4, help="수집할 최대 리뷰 수 (기본값: 4)")
     parser.add_argument("--lang", type=str, default="en", help="구글 맵스 수집 언어 (기본값: en - 원문 수집 보장)")
     parser.add_argument("--no-headless", action="store_true", help="헤드리스 모드를 끄고 브라우저 화면을 보면서 실행 (GUI 모드)")
     
     args = parser.parse_args()
 
     url = args.url
+    max_reviews = args.max_reviews
+
     if not url:
         url = input("URL을 입력하세요: ").strip()
 
     if not url:
-        print("[!] URL이 입력되지 않았습니까지. 종료합니다.")
+        print("[!] URL이 입력되지 않았습니다. 종료합니다.")
         sys.exit(1)
+
+    if "--max-reviews" not in sys.argv:
+        rev_input = input("수집할 리뷰 개수를 입력하세요 (기본값: 4): ").strip()
+        if rev_input and rev_input.isdigit():
+            max_reviews = int(rev_input)
+        else:
+            max_reviews = 4
 
     scraper = GoogleMapsScraper(headless=not args.no_headless, language=args.lang)
     
     try:
-        df, place_name = scraper.scrape(url, max_reviews=args.max_reviews)
+        df, place_name = scraper.scrape(url, max_reviews=max_reviews)
         
         safe_place_name = re.sub(r'[\\/*?:"<>|]', "", place_name).strip().replace(" ", "_")
         if not safe_place_name:

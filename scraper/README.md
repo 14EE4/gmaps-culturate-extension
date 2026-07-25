@@ -35,16 +35,20 @@ pip install -r scraper/requirements.txt
 
 ### 1. 기본 실행 (헤드리스 모드 기본 적용)
 
-명령어를 실행하고 구글 맵스 URL을 입력합니다:
+명령어를 실행하면 **URL**과 **수집할 리뷰 개수**를 대화형으로 물어봅니다 (엔터 입력 시 기본값 4건 수집):
 
 ```powershell
 py scraper/main.py
+
+# 실행 예시:
+# URL을 입력하세요: https://www.google.com/maps/place/...
+# 수집할 리뷰 개수를 입력하세요 (기본값: 4): 
 ```
 
 ### 2. 옵션 지정 실행
 
 - `--url`: 구글 맵스 식당 URL 직접 지정
-- `--max-reviews`: 수집할 최대 리뷰 수 (기본값: 100)
+- `--max-reviews`: 수집할 최대 리뷰 수 (기본값: 4)
 - `--lang`: 구글 맵스 수집 언어 (기본값: `en` - 원문 수집 보장)
 - `--no-headless`: 브라우저 창을 띄워서 모니터링 (GUI 모드)
 
