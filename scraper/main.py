@@ -151,8 +151,12 @@ class GoogleMapsScraper:
         return place_name or "restaurant"
 
     def scrape(self, url: str, max_reviews: int = 100) -> tuple[pd.DataFrame, str]:
-        print(f"[+] Google Maps 접속 중: {url}")
-        self.driver.get(url)
+        target_url = url
+        if "!9m1!1b1" not in target_url and "data=" in target_url:
+            target_url = target_url.replace("data=", "data=!9m1!1b1")
+
+        print(f"[+] Google Maps 접속 중: {target_url}")
+        self.driver.get(target_url)
         
         try:
             self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -198,6 +202,13 @@ class GoogleMapsScraper:
         # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지 및 탭/평점 버튼 클릭)
         print("[+] 리뷰 탭 상태 감지 및 이동 중...")
         card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
+        
+        try:
+            self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[role='tab'], button.hh2ftd, div.m6QEdf, button[aria-label*='reviews'], span.ce3eFc")))
+        except Exception:
+            pass
+        time.sleep(3)
+
         existing_cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
         
         if len(existing_cards) > 0:
@@ -230,16 +241,9 @@ class GoogleMapsScraper:
             # 4-2. 탭 클릭 미작동 시 리뷰 전용 파라미터(!9m1!1b1) 자동 URL 보정 후 재접속
             existing_cards_after_click = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
             if len(existing_cards_after_click) == 0:
-                if "!9m1!1b1" not in url:
+                if "!9m1!1b1" not in url and "data=" in url:
                     print("[+] 리뷰 전용 파라미터(!9m1!1b1)로 URL 자동 보정 재접속 중...")
-                    direct_review_url = url
-                    if "data=" in direct_review_url:
-                        direct_review_url = direct_review_url.replace("data=", "data=!9m1!1b1")
-                    elif "?" in direct_review_url:
-                        direct_review_url = direct_review_url.replace("?", "/data=!9m1!1b1?")
-                    else:
-                        direct_review_url = direct_review_url + "/data=!9m1!1b1"
-                    
+                    direct_review_url = url.replace("data=", "data=!9m1!1b1")
                     self.driver.get(direct_review_url)
                     time.sleep(4)
 
@@ -434,7 +438,7 @@ class GoogleMapsScraper:
             except Exception:
                 pass
 
-            time.sleep(2.5)
+            time.sleep(1.2)
 
             # 더 이상 로딩할 리뷰가 없는지 판별
             current_card_count = len(review_cards)
@@ -485,9 +489,11 @@ def main():
             max_reviews = 4
 
     scraper = GoogleMapsScraper(headless=not args.no_headless, language=args.lang)
+    start_time = time.time()
     
     try:
         df, place_name = scraper.scrape(url, max_reviews=max_reviews)
+        elapsed_sec = time.time() - start_time
         
         safe_place_name = re.sub(r'[\\/*?:"<>|]', "", place_name).strip().replace(" ", "_")
         if not safe_place_name:
@@ -499,8 +505,14 @@ def main():
         csv_path = output_dir / f"{safe_place_name}_reviews.csv"
         df.to_csv(csv_path, index=False, encoding="utf-8-sig")
         
+        if elapsed_sec >= 60:
+            time_str = f"{int(elapsed_sec // 60)}분 {elapsed_sec % 60:.1f}초"
+        else:
+            time_str = f"{elapsed_sec:.1f}초"
+
         print(f"\n[+] 스크레이핑 완료!")
         print(f"[+] 총 수집 건수: {len(df)}건")
+        print(f"[+] 총 소요 시간: {time_str}")
         print(f"[+] 저장 경로: {csv_path.resolve()}")
 
     except Exception as e:
