@@ -179,7 +179,7 @@ class GoogleMapsScraper:
         overall_rating = ""
         total_reviews_count = ""
         try:
-            rating_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.F72Y3c, span.ce3eFc, div.fontBodyMedium span[aria-hidden='true']")
+            rating_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontDisplayLarge, div.F72Y3c, span.ce3eFc, div.fontBodyMedium span[aria-hidden='true']")
             for r in rating_elems:
                 txt = r.text.strip()
                 if re.match(r"^\d(\.\d)?$", txt):
@@ -189,10 +189,10 @@ class GoogleMapsScraper:
             pass
 
         try:
-            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "span[aria-label*='리뷰'], button[data-tab-index='1'], span[aria-label*='reviews']")
+            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], button[data-tab-index='1'], span[aria-label*='reviews']")
             for c in review_cnt_elems:
                 txt = c.text.strip()
-                if txt:
+                if txt and ("리뷰" in txt or "개" in txt or "reviews" in txt.lower()):
                     total_reviews_count = txt
                     break
         except Exception:
@@ -200,50 +200,50 @@ class GoogleMapsScraper:
 
         print(f"[+] 전체 평점: {overall_rating} | 총 리뷰 정보: {total_reviews_count}")
 
-        # 4. 리뷰 탭 이동
-        print("[+] 리뷰 탭 탐색 및 클릭 시도...")
-        tab_clicked = False
-        time.sleep(2)
+        # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지)
+        print("[+] 리뷰 탭 상태 감지 및 이동 중...")
+        existing_cards = self.driver.find_elements(By.CSS_SELECTOR, "div.jJc9Ad, div.Gvh3ud, div[data-review-id]")
         
-        for sel in ["button[data-tab-index='1']", "button.hh2ftd", "button[aria-label*='리뷰']", "button[aria-label*='Reviews']"]:
-            try:
-                btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
-                for b in btns:
-                    label = (b.get_attribute("aria-label") or "") + " " + b.text
-                    if "리뷰" in label or "Reviews" in label or b.get_attribute("data-tab-index") == "1":
-                        self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
-                        self.driver.execute_script("arguments[0].click();", b)
-                        tab_clicked = True
-                        print(f"[+] 리뷰 탭 클릭 완료 ({label.strip()})")
-                        time.sleep(4)
+        if len(existing_cards) > 0:
+            print(f"[+] 이미 리뷰 페이지에 직접 접속되어 있습니다 (초기 감지 리뷰: {len(existing_cards)}개). 탭 클릭을 생략합니다.")
+        else:
+            tab_clicked = False
+            time.sleep(2)
+            
+            for sel in ["button[data-tab-index='1']", "button.hh2ftd", "button[aria-label*='리뷰']", "button[aria-label*='Reviews']"]:
+                try:
+                    btns = self.driver.find_elements(By.CSS_SELECTOR, sel)
+                    for b in btns:
+                        label = (b.get_attribute("aria-label") or "") + " " + b.text
+                        if ("리뷰" in label or "Reviews" in label) and b.is_displayed():
+                            self.driver.execute_script("arguments[0].scrollIntoView(true);", b)
+                            self.driver.execute_script("arguments[0].click();", b)
+                            tab_clicked = True
+                            print(f"[+] 리뷰 탭 클릭 완료 ({label.strip()})")
+                            time.sleep(4)
+                            break
+                    if tab_clicked:
                         break
-                if tab_clicked:
-                    break
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
-        if not tab_clicked:
-            print("[*] 리뷰 탭 클릭 미감지 (개요/기본 수집 영역 진행)")
+            if not tab_clicked:
+                print("[*] 리뷰 탭 클릭 생략 (기본 로드 영역 진행)")
 
-        # 5. 리뷰 스크롤 컨테이너 감지
+        # 5. 리뷰 스크롤 컨테이너 감지 (scrollHeight 기반 정교한 추출)
         scrollable_div = None
-        scroll_selectors = [
-            "div.m6QEdf.D6fe2e",
-            "div.m6QEdf[aria-label]",
-            "div.m6QEdf[role='region']",
-            "div.m6QEdf"
-        ]
-
-        for sel in scroll_selectors:
-            try:
-                divs = self.driver.find_elements(By.CSS_SELECTOR, sel)
-                for d in divs:
-                    scrollable_div = d
-                    break
-                if scrollable_div:
-                    break
-            except Exception:
-                pass
+        try:
+            divs = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEdf")
+            for d in divs:
+                try:
+                    scroll_h = self.driver.execute_script("return arguments[0].scrollHeight", d)
+                    if scroll_h and scroll_h > 400 and d.is_displayed():
+                        scrollable_div = d
+                        break
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {max_reviews}개)...")
         reviews_data = []
@@ -256,7 +256,8 @@ class GoogleMapsScraper:
             try:
                 more_buttons = self.driver.find_elements(By.CSS_SELECTOR, "button.w8rJ2d, button[aria-label*='자세히 보기'], button[aria-label*='More']")
                 for btn in more_buttons[:10]:
-                    self.driver.execute_script("arguments[0].click();", btn)
+                    if btn.is_displayed():
+                        self.driver.execute_script("arguments[0].click();", btn)
             except Exception:
                 pass
 
