@@ -560,15 +560,15 @@ def main():
         max_reviews = args.max_reviews
         if max_reviews is None:
             if total_rev_count_str:
-                prompt_msg = f"수집할 리뷰 개수를 입력하세요 (전체 {total_rev_count_str} 중, 기본값: 4): "
+                prompt_msg = f"수집할 리뷰 개수를 입력하세요 (전체 {total_rev_count_str} 중, 기본값: 20): "
             else:
-                prompt_msg = "수집할 리뷰 개수를 입력하세요 (기본값: 4): "
+                prompt_msg = "수집할 리뷰 개수를 입력하세요 (기본값: 20): "
 
             rev_input = input(prompt_msg).strip()
             if rev_input and rev_input.isdigit():
                 max_reviews = int(rev_input)
             else:
-                max_reviews = 4
+                max_reviews = 20
 
         df, place_name = scraper.scrape(url, max_reviews=max_reviews, pre_extracted_info=(total_rev_count_str, total_available_num))
         elapsed_sec = time.time() - start_time
