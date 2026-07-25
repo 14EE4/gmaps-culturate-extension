@@ -23,6 +23,11 @@
 16. [이슈 #16: 구글 맵스 영어 UI 환경에서의 리뷰 지연 로딩(AJAX) 및 동적 스크롤 부모 추적(`getReviewScrollParent` / `waitForReviewCards`)](#이슈-16-구글-맵스-영어-ui-환경에서의-리뷰-지연-로딩ajax-및-동적-스크롤-부모-추적getreviewscrollparent--waitforreviewcards)
 17. [이슈 #17: 리뷰 작성 상대일자(`7개월 전` / `7 months ago`) 추출 및 사이드바 UI 표시](#이슈-17-리뷰-작성-상대일자7개월-전--7-months-ago-추출-및-사이드바-ui-표시)
 18. [이슈 #18: 한국어 UI 환경에서 구글 자동 번역본("Google 제공 번역", "원본 보기") 오탐지 해결](#이슈-18-한국어-ui-환경에서-구글-자동-번역본google-제공-번역-원본-보기-오탐지-해결)
+19. [이슈 #19: 별점 전용 리뷰 카드 및 구글 맵스 UI 메타데이터("신규", "주문 유형", "점심 식사" 등) 한글 본문 오파싱 해결](#이슈-19-별점-전용-리뷰-카드-및-구글-맵스-ui-메타데이터신규-주문-유형-점심-식사-등-한글-본문-오파싱-해결)
+20. [이슈 #20: 사전 분석 데이터(~21.09) + 실시간 DOM 파싱 데이터의 가중 평균(Weighted Average) 통합 평점 산출](#이슈-20-사전-분석-데이터2109--실시간-dom-파싱-데이터의-가중-평균weighted-average-통합-평점-산출)
+21. [이슈 #21: 구글 맵스 주소 DOM 파싱 및 Material Symbols 아이콘 폰트(\uE000-\uF8FF) 네모 박스(□) 제거](#이슈-21-구글-맵스-주소-dom-파싱-및-material-symbols-아이콘-폰트ue000-uf8ff-네모-박스-제거)
+22. [이슈 #22: 구글 맵스 카테고리 태그(button.DkEaL) 실시간 DOM 파싱 및 사이드바 표출](#이슈-22-구글-맵스-카테고리-태그buttondkeal-실시간-dom-파싱-및-사이드바-표출)
+23. [이슈 #23: 이전 이동 장소 히스토리 URL 파라미터로 인한 gmap_id 잘못 파싱되는 문제 해결](#이슈-23-이전-이동-장소-히스토리-url-파라미터로-인한-gmap_id-잘못-파싱되는-문제-해결)
 
 ---
 
@@ -342,3 +347,54 @@
   3. **별점 전용 리뷰 완전 필터링**:
      - UI 단어 세탁 후 남은 본문 텍스트가 없거나 의미 없는 특수문자/숫자뿐이면 `pureText`를 `""` (빈 값) 처리하여 원문 리뷰 목록에서 100% 필터링 처리.
 
+---
+
+### 이슈 #20: 사전 분석 데이터(~21.09) + 실시간 DOM 파싱 데이터의 가중 평균(Weighted Average) 통합 평점 산출
+
+- **증상 (Symptom)**:
+  - 2021년 9월 이전 UCSD 데이터셋 기반 사전 데이터만 표시되거나 실시간 파싱된 리뷰 평점만 단독 적용되어 과거/현재 데이터를 아우르는 통합 체감 평점 계산이 불가능했음.
+- **원인 분석**:
+  - 사전 분석 데이터 스키마의 키 명칭(`kr_count`, `passed_min_reviews`, `korean_review_count`, `kr_avg`, `avg_rating`, `korean_rating`)이 가변적이어서 통합 계산 시 안전한 접근 어댑터가 필요했음.
+- **해결 조치**:
+  1. **`extractPastKrData(pastData)` 어댑터 구현**: 사전 데이터의 개수와 평점을 안전하게 추출.
+  2. **`calculateCombinedKrRating()` 수식 구현**:
+     $$\text{combinedRating} = \frac{(\text{pastKrRating} \times \text{pastKrCount}) + \sum \text{liveKrScores}}{\text{pastKrCount} + \text{liveKrCount}}$$
+  3. **사이드바 UI 연동**: "🇰🇷 한국인 체감 평점" 영역에 통합 평점 및 총 리뷰 수(예: `격차 -0.6 (총 18건)`) 동적 반영.
+
+---
+
+### 이슈 #21: 구글 맵스 주소 DOM 파싱 및 Material Symbols 아이콘 폰트(\uE000-\uF8FF) 네모 박스(□) 제거
+
+- **증상 (Symptom)**:
+  - 구글 맵스 상세 패널의 주소 버튼(`button[data-item-id="address"]`)에서 주소를 읽어올 때 `3201 S Hoover St...` 앞에 네모 박스(`□`) 깨짐 문자가 함께 파싱됨.
+- **원인 분석**:
+  - 구글 맵스가 위치 아이콘 표시를 위해 `Google Material Symbols` 전용 웹 폰트(Private Use Area Unicode `\uE000-\uF8FF`)를 HTML에 삽입하여, plain text로 파싱 시 폰트 미적용으로 네모 박스가 생성됨.
+- **해결 조치**:
+  1. **`cleanAddressText(str)` 정화 함수 작성**:
+     - `str.replace(/[\uE000-\uF8FF]/g, '')`로 구글 심볼 특수문자 전면 제거.
+     - `str.replace(/^[^\w\d\uAC00-\uD7A3가-힣]+/, '')`로 문장 앞단 아이콘 찌꺼기 완벽 정제.
+  2. **`extractAddressFromDOM()` 구현**: `.Io6YTe` 및 `aria-label`에서 주소를 파싱하여 깨끗한 주소 문자열만 사이드바에 표출.
+
+---
+
+### 이슈 #22: 구글 맵스 카테고리 태그(button.DkEaL) 실시간 DOM 파싱 및 사이드바 표출
+
+- **증상 (Symptom)**:
+  - 장소의 식당/업종 카테고리 태그(예: `"샌드위치 가게"`, `"샐러드 전문점"`)가 사이드바 상단 카드에 동적으로 파싱되지 않고 고정 문구로 노출되는 현상.
+- **원인 분석**:
+  - 구글 맵스가 카테고리 태그에 `button.DkEaL` 및 `button[jsaction*="category"]` 클래스를 할당하고 있어 별도의 파서가 필요했음.
+- **해결 조치**:
+  1. **`extractCategoryFromDOM()` 함수 추가**: `button.DkEaL` 버튼을 자동 탐색하여 카테고리 태그 추출 (중복 시 쉼표로 결합).
+  2. **사이드바 동적 바인딩**: `processPlaceDetection` 및 `scheduleRatingRetry`에서 `data.category`를 실시간 갱신 및 사이드바 상단 `🏷️` 영역에 노출.
+
+---
+
+### 이슈 #23: 이전 이동 장소 히스토리 URL 파라미터로 인한 gmap_id 잘못 파싱되는 문제 해결
+
+- **증상 (Symptom)**:
+  - 이전 탐색 장소(예: Jimmy John's)에서 새 장소(예: CAVA)를 지도에서 직접 클릭 시 URL에 이전 장소와 현재 장소의 `0x...:0x...` ID가 동시에 남아 사이드바가 CAVA로 전환되지 않고 Jimmy John's에 멈춰있는 현상.
+- **원인 분석**:
+  - `extractGMapId(url)`가 `url.match(/!1s.../)`로 첫 번째 등장하는 `gmap_id`를 선택하여 이전 히스토리 장소의 ID가 선택되었음.
+- **해결 조치**:
+  1. `url.matchAll(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/gi)`을 통해 URL 내 모든 Hex ID 파라미터를 수집.
+  2. 히스토리 이전 장소 ID 대신 **가장 마지막 위치의 ID (`matches[matches.length - 1][1]`)**를 선택하도록 개선하여, 장소 이동 시 현재 선택된 CAVA로 즉시 100% 자동 전환되도록 해결.
