@@ -188,9 +188,9 @@ class GoogleMapsScraper:
             pass
 
         try:
-            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], span[aria-label*='reviews'], button[data-tab-index='1']")
+            review_cnt_elems = self.driver.find_elements(By.CSS_SELECTOR, "div.fontBodySmall, span[aria-label*='리뷰'], span[aria-label*='reviews'], button[data-tab-index='1'], span.ce3eFc")
             for c in review_cnt_elems:
-                txt = (c.get_attribute("textContent") or c.text or "").strip()
+                txt = (c.get_attribute("aria-label") or c.get_attribute("textContent") or c.text or "").strip()
                 if txt and ("리뷰" in txt or "개" in txt or "reviews" in txt.lower()):
                     total_reviews_count = txt
                     break
@@ -198,6 +198,24 @@ class GoogleMapsScraper:
             pass
 
         print(f"[+] 전체 평점: {overall_rating} | 총 리뷰 정보: {total_reviews_count}")
+
+        # 총 리뷰 개수 숫자 파싱
+        total_available_num = None
+        if total_reviews_count:
+            num_clean = total_reviews_count.replace(",", "")
+            match = re.search(r"(\d+(?:\.\d+)?)\s*(?:k|K|천)?", num_clean)
+            if match:
+                val = float(match.group(1))
+                if "k" in num_clean.lower() or "천" in num_clean:
+                    val *= 1000
+                total_available_num = int(val)
+
+        target_reviews = max_reviews
+        if total_available_num and total_available_num > 0:
+            target_reviews = min(max_reviews, total_available_num)
+            print(f"[+] 식당 총 리뷰 수({total_available_num}개) 감지 ➔ 최종 수집 목표: {target_reviews}개")
+        else:
+            print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {max_reviews}개)...")
 
         # 4. 리뷰 탭 이동 (이미 리뷰 페이지 접속 여부 감지 및 탭/평점 버튼 클릭)
         print("[+] 리뷰 탭 상태 감지 및 이동 중...")
@@ -289,13 +307,12 @@ class GoogleMapsScraper:
         else:
             print("[!] 리뷰 스크롤 전용 컨테이너 감지 실패, body 스크롤을 시도합니다.")
 
-        print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {max_reviews}개)...")
         reviews_data = []
         last_card_count = 0
         same_count_retries = 0
         columns = ["place_id", "place_name", "overall_rating", "author", "rating", "date", "review_text"]
 
-        while len(reviews_data) < max_reviews:
+        while len(reviews_data) < target_reviews:
             # "자세히 보기" (More) 버튼 클릭
             try:
                 more_buttons = self.driver.find_elements(By.CSS_SELECTOR, "button.w8rJ2d, button[aria-label*='자세히 보기'], button[aria-label*='More']")
@@ -406,14 +423,15 @@ class GoogleMapsScraper:
                         "review_text": review_text
                     })
 
-                    if len(reviews_data) >= max_reviews:
+                    if len(reviews_data) >= target_reviews:
                         break
                 except Exception:
                     continue
 
-            print(f"    - 현재 수집 완료 건수: {len(reviews_data)} / {max_reviews}")
+            print(f"    - 현재 수집 완료 건수: {len(reviews_data)} / {target_reviews}")
 
-            if len(reviews_data) >= max_reviews:
+            if len(reviews_data) >= target_reviews:
+                print(f"[+] 목표 수량({target_reviews}개)에 도달하여 수집을 마칩니다.")
                 break
 
             # 스크롤 내리기 (1. 마지막 카드를 스크롤 영역으로 끌어오기 + 2. 컨테이너 스크롤)
@@ -440,12 +458,13 @@ class GoogleMapsScraper:
 
             time.sleep(1.2)
 
-            # 더 이상 로딩할 리뷰가 없는지 판별
+            # 더 이상 로딩할 리뷰가 없는지 판별 (소규모 식당 시 빠른 종료)
             current_card_count = len(review_cards)
             if current_card_count == last_card_count:
                 same_count_retries += 1
-                if same_count_retries >= 8:
-                    print("[*] 더 이상 새로 로딩되는 리뷰가 없어 수집을 마칩니다.")
+                max_retries = 3 if (total_available_num and total_available_num <= 50) else 5
+                if same_count_retries >= max_retries:
+                    print(f"[*] 더 이상 새로 로딩되는 리뷰가 없습니다 (총 {len(reviews_data)}건 수집 완료).")
                     break
             else:
                 same_count_retries = 0
