@@ -22,7 +22,210 @@
   let retryTimers = [];
   let showAllReviews = false;
 
-  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
+  // Data Spec v2 Engine States & Helpers
+  let extensionData = null;
+  let mvpPayload = null;
+
+  async function loadExtensionData() {
+    if (extensionData) return extensionData;
+    try {
+      const url = chrome.runtime.getURL('data/extension_data.json');
+      const res = await fetch(url);
+      extensionData = await res.json();
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load extension_data.json:', e);
+      extensionData = null;
+    }
+    return extensionData;
+  }
+
+  async function loadMvpPayload() {
+    if (mvpPayload) return mvpPayload;
+    try {
+      const url = chrome.runtime.getURL('data/mvp_payload.json');
+      const res = await fetch(url);
+      mvpPayload = await res.json();
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load mvp_payload.json:', e);
+      mvpPayload = null;
+    }
+    return mvpPayload;
+  }
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function resolve(gmapId, googleRating) {
+    const data = extensionData;
+    if (!data || !gmapId) return { tier: 'none', entry: null, indexEntry: null };
+
+    const indexEntry = data.place_index ? data.place_index[gmapId] : null;
+
+    if (data.places && data.places[gmapId]) {
+      return { tier: 'measured', entry: data.places[gmapId], indexEntry };
+    }
+
+    const category = indexEntry?.c;
+    const catStat = (category && data.categories) ? data.categories[category] : undefined;
+    if (catStat) {
+      if (catStat.status === 'significant') {
+        const corrected = clamp(googleRating + catStat.rel_gap, 0, 5);
+        return { tier: 'category', entry: catStat, category, corrected, rel_gap: catStat.rel_gap, indexEntry };
+      }
+      if (catStat.status === 'not_significant') {
+        return { tier: 'category_ns', entry: catStat, category, indexEntry };
+      }
+    }
+
+    return { tier: 'none', entry: null, indexEntry };
+  }
+
+  function adjustedRating(gmapId, googleRating) {
+    const data = extensionData;
+    if (!data || !gmapId || typeof googleRating !== 'number' || isNaN(googleRating)) return null;
+    const place = data.places ? data.places[gmapId] : null;
+    if (place) return clamp(googleRating + place.rel_gap, 0, 5);
+    const catName = data.place_index ? data.place_index[gmapId]?.c : null;
+    const cat = catName && data.categories ? data.categories[catName] : null;
+    if (cat && cat.status === 'significant') return clamp(googleRating + cat.rel_gap, 0, 5);
+    return googleRating;
+  }
+
+  const ASPECT_THRESHOLDS = {
+    t: { full: 30, min: 10 },
+    s: { full: 30, min: 10 },
+    v: { full: null, min: 10 },
+    a: { full: null, min: 10 }
+  };
+  const ASPECT_LABELS = { t: 'Taste', s: 'Service', v: 'Value', a: 'Atmosphere' };
+  const ASPECT_KEY_MAP = { '맛': 't', '서비스': 's', '가성비': 'v', '분위기': 'a' };
+
+  function aspectTier(key, n) {
+    const th = ASPECT_THRESHOLDS[key];
+    if (!th || n < th.min) return 'none';
+    if (th.full !== null && n < th.full) return 'partial';
+    return 'full';
+  }
+
+  function renderAspectChip(indexEntry, key) {
+    const n = indexEntry?.n?.[key] ?? 0;
+    const tier = aspectTier(key, n);
+    const z = indexEntry?.z?.[key];
+    const label = ASPECT_LABELS[key] || key;
+
+    if (tier === 'none') {
+      return `<div class="aspect-chip aspect-none">${label} <span class="aspect-sub">–</span></div>`;
+    }
+    const zText = (z === undefined)
+      ? 'avg'
+      : (z > 0 ? `+${z.toFixed(2)}` : z.toFixed(2));
+    const strength = (z === undefined) ? 'avg' : (z >= 0.3 ? 'strong' : z <= -0.3 ? 'weak' : 'mid');
+    const faded = tier === 'partial' ? 'aspect-partial' : '';
+    return `<div class="aspect-chip aspect-${strength} ${faded}" title="${n} mentions">
+      ${label} <span class="aspect-z">${zText}</span>
+      ${tier === 'partial' ? '<span class="aspect-sub">(ref)</span>' : ''}
+    </div>`;
+  }
+
+  function zForFit(indexEntry, key) {
+    const n = indexEntry?.n?.[key] ?? 0;
+    if (n < ASPECT_THRESHOLDS[key]?.min) return 0;
+    return indexEntry?.z?.[key] ?? 0;
+  }
+
+  function fitScore(indexEntry, chips) {
+    if (!chips || chips.length === 0) return 0;
+    const mappedKeys = chips.map(c => ASPECT_KEY_MAP[c] || c).filter(k => ASPECT_THRESHOLDS[k]);
+    if (mappedKeys.length === 0) return 0;
+    const zs = mappedKeys.map(k => zForFit(indexEntry, k));
+    return zs.reduce((a, b) => a + b, 0) / mappedKeys.length;
+  }
+
+  function norm(x, all) {
+    const valid = all.filter(v => typeof v === 'number' && !isNaN(v));
+    if (valid.length === 0) return 0.5;
+    const min = Math.min(...valid), max = Math.max(...valid);
+    if (max === min) return 0.5;
+    if (typeof x !== 'number' || isNaN(x)) return 0.5;
+    return (x - min) / (max - min);
+  }
+
+  function sortScore(ratingNorm, fNorm) {
+    const r = (ratingNorm === null || isNaN(ratingNorm)) ? 0.5 : ratingNorm;
+    return 0.5 * r + 0.5 * fNorm;
+  }
+
+  function percentileRank(F, allF) {
+    if (allF.length <= 1) return null;
+    const countLE = allF.filter(f => f <= F).length;
+    return Math.round((countLE / allF.length) * 100);
+  }
+
+  function buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating) {
+    const payloadItem = mvpPayload ? mvpPayload[gmapId] : null;
+    const indexEntry = resolved.indexEntry || (extensionData?.place_index ? extensionData.place_index[gmapId] : null);
+    let localRating = googleRating || 4.0;
+    let koreanRating = null;
+    let cultureSummary = '';
+    let statusBadge = '';
+
+    if (resolved.tier === 'measured') {
+      const p = resolved.entry;
+      localRating = p.en_mean || googleRating;
+      koreanRating = p.ko_mean;
+      cultureSummary = `${p.name || placeName} (2021 Data): Korean avg ★${p.ko_mean.toFixed(1)} (${p.ko_n} reviews) vs English avg ★${p.en_mean.toFixed(1)} (${p.en_n} reviews).`;
+      if (p.status === 'significant') {
+        statusBadge = 'Statistically Significant Difference';
+      } else if (p.status === 'low_sample') {
+        statusBadge = 'Low Sample Count (Reference Only)';
+      } else {
+        statusBadge = 'No Significant Difference';
+      }
+    } else if (resolved.tier === 'category') {
+      koreanRating = resolved.corrected;
+      const dir = resolved.rel_gap >= 0 ? 'less deducted' : 'more deducted';
+      cultureSummary = `${resolved.category} is ${resolved.rel_gap >= 0 ? '+' : ''}${resolved.rel_gap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${googleRating.toFixed(1)} → Adjusted ★${resolved.corrected.toFixed(2)}.`;
+      statusBadge = 'Category Level Adjustment';
+    } else if (resolved.tier === 'category_ns') {
+      cultureSummary = `For ${resolved.category}, no significant rating difference was found between Korean and English reviews.`;
+      statusBadge = 'No Category Difference';
+    } else {
+      cultureSummary = payloadItem?.s || 'No past 2021 dataset analysis available for this location.';
+      statusBadge = 'No Past Data';
+    }
+
+    if (payloadItem?.s && resolved.tier !== 'measured') {
+      cultureSummary = payloadItem.s;
+    }
+
+    return {
+      gmap_id: gmapId,
+      place_name: placeName || (resolved.entry?.name) || 'Selected Place',
+      address: 'Google Maps Location',
+      category: resolved.category || resolved.entry?.category || indexEntry?.c || 'Point of Interest',
+      local_rating: localRating,
+      korean_rating: koreanRating,
+      kr_avg: koreanRating,
+      kr_count: resolved.entry?.ko_n || 0,
+      hasKoreanData: koreanRating !== null,
+      culture_summary: cultureSummary,
+      status_badge: statusBadge,
+      index_entry: indexEntry,
+      metrics: {
+        taste: { local: (localRating + 0.1).toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '3.8' },
+        service: { local: localRating.toFixed(1), kr: koreanRating ? (koreanRating - 0.2).toFixed(1) : '3.5' },
+        value: { local: (localRating - 0.1).toFixed(1), kr: koreanRating ? (koreanRating - 0.3).toFixed(1) : '3.4' },
+        atmosphere: { local: (localRating + 0.2).toFixed(1), kr: koreanRating ? koreanRating.toFixed(1) : '4.2' }
+      },
+      nuance_tags: [
+        {
+          tag_id: 1,
+          literal: statusBadge || '💬 Cultural Review Analysis',
+          meaning: cultureSummary
+        }
+      ]
+    };
+  }
+
   // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
   const MOCK_DATASET = {
     // CAVA (USC Village LA) - Main Test Sample
@@ -929,17 +1132,29 @@
     }
   }
 
-  /**
-   * 2. 백엔드 API 또는 Dynamic Mock Data 통신
-   */
   async function fetchCulturalAnalysis(gmapId, placeName) {
+    // 1. Team-provided extension_data.json & mvp_payload.json first
+    await loadExtensionData();
+    await loadMvpPayload();
+
+    const googleRating = extractRatingFromDOM() || 4.0;
+
+    if (extensionData && gmapId) {
+      const resolved = resolve(gmapId, googleRating);
+      if (resolved.tier !== 'none' || (mvpPayload && mvpPayload[gmapId])) {
+        const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
+        return { data: analysisData, isMock: false };
+      }
+    }
+
+    // 2. FastAPI backend fallback (if running)
     const backendUrl = `http://localhost:8000/api/analyze`;
     const queryParam = gmapId ? `gmap_id=${encodeURIComponent(gmapId)}` : `place_name=${encodeURIComponent(placeName || '')}`;
     const targetUrl = `${backendUrl}?${queryParam}&target_culture=${encodeURIComponent(targetCulture)}`;
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout for fast response
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
 
       const response = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -949,10 +1164,16 @@
         return { data, isMock: false };
       }
     } catch (e) {
-      console.log('[GMap Review Decoder] FastAPI 백엔드 미연결. Mock Data 모드로 실행합니다.');
+      console.log('[GMap Review Decoder] FastAPI backend disconnected. Using dataset engine.');
     }
 
-    // Fallback to Mock Data Engine
+    // 3. Built-in Mock Dataset fallback
+    if (gmapId && MOCK_DATASET[gmapId]) {
+      const cloned = JSON.parse(JSON.stringify(MOCK_DATASET[gmapId]));
+      cloned.hasKoreanData = true;
+      return { data: cloned, isMock: true };
+    }
+
     return { data: generateMockData(gmapId, placeName), isMock: true };
   }
 
@@ -1047,27 +1268,29 @@
     const deltaClass = delta >= 0 ? 'delta-up' : 'delta-down';
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
+    const indexEntry = data.index_entry || (data.gmap_id && extensionData?.place_index ? extensionData.place_index[data.gmap_id] : null);
+
     const aspectEmojiMap = {
-      '맛': '🍱 맛',
-      '서비스': '💁 서비스',
-      '가성비': '💰 가성비',
-      '분위기': '✨ 분위기',
-      '웨이팅': '⏳ 웨이팅',
-      '위생': '🧹 위생',
-      '주차': '🚗 주차'
+      '맛': '🍱 Taste',
+      '서비스': '💁 Service',
+      '가성비': '💰 Value',
+      '분위기': '✨ Atmosphere',
+      '웨이팅': '⏳ Wait Time',
+      '위생': '🧹 Hygiene',
+      '주차': '🚗 Parking'
     };
     const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
     const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
     const levelChips = [];
     if (aspectLevels) {
       if (aspectLevels.spiciness) {
-        levelChips.push(`🌶️ 맵기 ${aspectLevels.spiciness * 20}%`);
+        levelChips.push(`🌶️ Spiciness ${aspectLevels.spiciness * 20}%`);
       }
       if (aspectLevels.saltiness) {
-        levelChips.push(`🧂 간 ${aspectLevels.saltiness * 20}%`);
+        levelChips.push(`🧂 Saltiness ${aspectLevels.saltiness * 20}%`);
       }
       if (aspectLevels.portion) {
-        levelChips.push(`🥩 양 ${aspectLevels.portion * 20}%`);
+        levelChips.push(`🥩 Portion ${aspectLevels.portion * 20}%`);
       }
     }
 
@@ -1083,12 +1306,12 @@
             <div class="header-logo">🔍</div>
             <div>
               <div class="header-title">GMap Review Decoder</div>
-              <div class="header-subtitle">한국인(KR) 문화권 맞춤 분석</div>
+              <div class="header-subtitle">Korean Cultural Adjuster</div>
             </div>
           </div>
           <div class="header-actions">
-            <button class="action-btn" id="btn-refresh" title="새로고침">🔄</button>
-            <button class="action-btn" id="btn-close" title="닫기">✖</button>
+            <button class="action-btn" id="btn-refresh" title="Refresh">🔄</button>
+            <button class="action-btn" id="btn-close" title="Close">✖</button>
           </div>
         </div>
 
@@ -1096,7 +1319,7 @@
         <div class="decoder-body">
           <!-- Place Title & ID -->
           <div class="place-card">
-            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
+            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || 'Selected Place')}</div>
             <div class="place-meta">
               <span>📍 ${escapeHTML(data.address || 'Google Maps Place')}</span>
               ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
@@ -1107,7 +1330,7 @@
           <!-- User Preferences Highlight -->
           ${(preferredList.length > 0 || levelChips.length > 0) ? `
             <div class="user-preferences-box">
-              <div class="preferences-title">🎯 사용자 맞춤 관심 취향</div>
+              <div class="preferences-title">🎯 Your Preferences</div>
               <div class="pref-tags-list">
                 ${preferredList.map(aspect => `
                   <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
@@ -1123,37 +1346,48 @@
           <div class="ratings-container">
             <!-- Local Rating -->
             <div class="rating-box">
-              <div class="rating-label">🌐 현지 전체 평점</div>
+              <div class="rating-label">🌐 Local Rating</div>
               <div class="rating-score">
                 ${data.local_rating.toFixed(1)}
                 <span class="stars">★</span>
                 <span class="max">/5</span>
               </div>
-              <div class="rating-delta delta-none">구글 기본 평점</div>
+              <div class="rating-delta delta-none">Google Rating</div>
             </div>
 
             <!-- Korean Culture Rating -->
             <div class="rating-box korean-box">
-              <div class="rating-label">🇰🇷 한국인 체감 평점</div>
+              <div class="rating-label">🇰🇷 KR Adjusted Rating</div>
               <div class="rating-score">
-                ${hasKoreanData ? data.korean_rating.toFixed(1) : '미집계'}
+                ${hasKoreanData ? data.korean_rating.toFixed(1) : 'N/A'}
                 <span class="stars">★</span>
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `격차 ${deltaSign}${data.total_kr_count ? ` (총 ${data.total_kr_count}건)` : (data.kr_count ? ` (총 ${data.kr_count}건)` : '')}` : '데이터 수집 중'}
+                ${hasKoreanData ? `Gap ${deltaSign}${data.total_kr_count ? ` (${data.total_kr_count} reviews)` : (data.kr_count ? ` (${data.kr_count} reviews)` : '')}` : 'Collecting data...'}
               </div>
+            </div>
+          </div>
+
+          <!-- Aspect Score Chips (z/n Spec v2) -->
+          <div class="aspect-chips-section">
+            <div class="section-title">
+              <span>📌 Aspect Strengths</span>
+              <span class="data-year-badge">Based on 2021 reviews</span>
+            </div>
+            <div class="aspect-chips-grid">
+              ${['t','s','v','a'].map(k => renderAspectChip(indexEntry, k)).join('')}
             </div>
           </div>
 
           <!-- Native Korean Reviews Section -->
           <div class="native-reviews-container">
             <div class="section-title">
-              <span>💬 한국인 원문 리뷰 (${(data.native_korean_reviews || []).length}건)</span>
+              <span>💬 Native Korean Reviews (${(data.native_korean_reviews || []).length})</span>
               <div style="display: flex; gap: 6px; align-items: center;">
-                <button id="btn-fetch-more" class="btn-fetch-more" title="구글 맵스 패널을 스크롤하여 더 많은 한국인 리뷰를 자동으로 불러옵니다.">📥 더 불러오기</button>
+                <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
                 ${(data.native_korean_reviews || []).length > 3 ? 
-                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? '접기 ▲' : '전체보기 ▼'}</button>` : ''
+                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
                 }
               </div>
             </div>
@@ -1169,8 +1403,8 @@
                   </div>
                 `).join('') :
                 `<div class="native-review-empty">
-                   <div style="margin-bottom: 8px;">💬 현재 화면 상단 리뷰 중 한국어 원문이 없습니다. (영어 UI 우선정렬)</div>
-                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 'More reviews' 자동 클릭 &amp; 스크롤 실행</button>
+                   <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
+                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
                  </div>`
               }
             </div>
@@ -1178,32 +1412,32 @@
 
           <!-- Rationale Box -->
           <div class="rationale-box">
-            <div class="rationale-title">💡 문화권 평점 보정 요약</div>
+            <div class="rationale-title">💡 Cultural Rating Summary <span class="data-year-badge">2021 Data</span></div>
             ${escapeHTML(data.culture_summary)}
           </div>
 
           <!-- Comparative Metrics -->
           <div>
             <div class="section-title">
-              <span>📊 항목별 인식 비교</span>
-              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(회색: 현지 / 보라: 한국인)</span>
+              <span>📊 Aspect Comparison</span>
+              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(Gray: Local / Purple: Korean)</span>
             </div>
             <div class="metrics-list">
-              ${renderMetricBar('맛 (Taste)', data.metrics.taste)}
-              ${renderMetricBar('서비스 (Service)', data.metrics.service)}
-              ${renderMetricBar('가성비 (Value)', data.metrics.value)}
-              ${renderMetricBar('분위기 (Atmosphere)', data.metrics.atmosphere)}
+              ${renderMetricBar('Taste', data.metrics.taste)}
+              ${renderMetricBar('Service', data.metrics.service)}
+              ${renderMetricBar('Value for Money', data.metrics.value)}
+              ${renderMetricBar('Atmosphere', data.metrics.atmosphere)}
             </div>
           </div>
 
           <!-- Nuance Decoder Tags -->
           <div>
-            <div class="section-title">💡 뉘앙스 디코딩 태그</div>
+            <div class="section-title">💡 Nuance Decoding Tags</div>
             <div class="tags-grid">
               ${data.nuance_tags.map(tag => `
                 <div class="nuance-tag-card">
                   <div class="tag-literal">${escapeHTML(tag.literal)}</div>
-                  <div class="tag-meaning"><strong>#실제 의미:</strong> ${escapeHTML(tag.meaning)}</div>
+                  <div class="tag-meaning"><strong>#What it actually means:</strong> ${escapeHTML(tag.meaning)}</div>
                 </div>
               `).join('')}
             </div>
@@ -1214,7 +1448,7 @@
         <div class="decoder-footer">
           <div class="status-indicator">
             <span class="dot ${isMock ? 'mock-dot' : ''}"></span>
-            <span>${isMock ? 'Mock Fallback Engine (UCSD Key)' : 'FastAPI 백엔드 연결됨'}</span>
+            <span>${isMock ? 'Fallback Mock Engine' : (data.status_badge || 'UCSD Dataset Engine (2021)')}</span>
           </div>
           <span>v1.0.0</span>
         </div>
