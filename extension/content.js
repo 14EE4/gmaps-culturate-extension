@@ -310,6 +310,19 @@
   }
 
   /**
+   * 주소 텍스트 정화 (Google Material Symbols 아이콘 폰트 특수문자 및 네모 박스 제거)
+   */
+  function cleanAddressText(str) {
+    if (!str) return '';
+    return str
+      .replace(/[\uE000-\uF8FF]/g, '') // Google Symbols / Font Awesome Private Use Area 특수 기호 제거
+      .replace(/^[^\w\d\uAC00-\uD7A3가-힣]+/, '') // 문장 앞단 아이콘 기호 제거
+      .replace(/^(주소|Address):\s*/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * DOM에서 장소 주소 추출
    * (Google Maps data-item-id="address" 버튼 및 aria-label / .Io6YTe 기반)
    */
@@ -318,19 +331,25 @@
       // 1. data-item-id="address" 및 data-tooltip="주소 복사" 셀렉터 우선 검사
       const addressBtn = document.querySelector('button[data-item-id="address"], [data-item-id="address"], button[data-tooltip="주소 복사"], button[data-tooltip="Copy address"]');
       if (addressBtn) {
-        // 내부 텍스트 엘리먼트 (div.Io6YTe, .rogA2c)
-        const textEl = addressBtn.querySelector('.Io6YTe, .rogA2c, div');
+        // .Io6YTe 텍스트 엘리먼트 우선 선택
+        const ioEl = addressBtn.querySelector('.Io6YTe');
+        if (ioEl && ioEl.textContent.trim()) {
+          const cleaned = cleanAddressText(ioEl.textContent);
+          if (cleaned) return cleaned;
+        }
+
+        // 일반 하위 텍스트 엘리먼트 (.rogA2c, div)
+        const textEl = addressBtn.querySelector('.rogA2c, div');
         if (textEl && textEl.textContent.trim()) {
-          return textEl.textContent.trim();
+          const cleaned = cleanAddressText(textEl.textContent);
+          if (cleaned) return cleaned;
         }
 
         // aria-label 파싱 ("주소: 3201 S Hoover St..." 또는 "Address: 3201 S Hoover St...")
         const ariaLabel = addressBtn.getAttribute('aria-label') || '';
         if (ariaLabel) {
-          let cleanAddr = ariaLabel
-            .replace(/^(주소|Address):\s*/gi, '')
-            .trim();
-          if (cleanAddr) return cleanAddr;
+          const cleaned = cleanAddressText(ariaLabel);
+          if (cleaned) return cleaned;
         }
       }
 
@@ -338,8 +357,8 @@
       const ariaEl = document.querySelector('[aria-label*="주소:"], [aria-label*="Address:"]');
       if (ariaEl) {
         const label = ariaEl.getAttribute('aria-label') || '';
-        let cleanAddr = label.replace(/^(주소|Address):\s*/gi, '').trim();
-        if (cleanAddr) return cleanAddr;
+        const cleaned = cleanAddressText(label);
+        if (cleaned) return cleaned;
       }
     } catch (e) {
       console.log('[GMap Review Decoder] DOM 주소 추출 중 오류:', e);
