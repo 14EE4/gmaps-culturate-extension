@@ -1,91 +1,116 @@
 /**
  * GMap Review Decoder - Popup JS Controller
+ * Dual Structure: v2 Aspect Importance Weights (A) vs Overseas Food Adaptation (B)
  */
 
 document.addEventListener('DOMContentLoaded', () => {
   const toggleEnabled = document.getElementById('toggle-enabled');
+  const toggleDebug = document.getElementById('toggle-debug');
   const selectCulture = document.getElementById('select-culture');
   const inputBackend = document.getElementById('input-backend');
   const btnSave = document.getElementById('btn-save');
-  const aspectCheckboxes = document.querySelectorAll('.aspect-checkbox');
 
-  // Sliders
-  const sliderSpiciness = document.getElementById('slider-spiciness');
-  const sliderSaltiness = document.getElementById('slider-saltiness');
-  const sliderPortion = document.getElementById('slider-portion');
+  // Section A: v2 Importance Weights (1~5)
+  const weightT = document.getElementById('weight-t');
+  const weightS = document.getElementById('weight-s');
+  const weightV = document.getElementById('weight-v');
+  const weightA = document.getElementById('weight-a');
 
-  const valSpiciness = document.getElementById('val-spiciness');
-  const valSaltiness = document.getElementById('val-saltiness');
-  const valPortion = document.getElementById('val-portion');
+  const valWeightT = document.getElementById('val-weight-t');
+  const valWeightS = document.getElementById('val-weight-s');
+  const valWeightV = document.getElementById('val-weight-v');
+  const valWeightA = document.getElementById('val-weight-a');
 
-  const spicinessText = {
-    1: '20% (안 매움)',
-    2: '40% (순한맛)',
-    3: '60% (보통)',
-    4: '80% (매운맛)',
-    5: '100% (아주 매운맛)'
+  // Section B: Overseas Food Adaptation Preferences (1~5 Sliders)
+  const tasteAuth = document.getElementById('taste-authenticity');
+  const tasteGreasy = document.getElementById('taste-greasiness');
+  const tasteSpicy = document.getElementById('taste-spiciness');
+  const tasteHerbs = document.getElementById('taste-herbs');
+
+  const valTasteAuth = document.getElementById('val-taste-authenticity');
+  const valTasteGreasy = document.getElementById('val-taste-greasiness');
+  const valTasteSpicy = document.getElementById('val-taste-spiciness');
+  const valTasteHerbs = document.getElementById('val-taste-herbs');
+
+  const authText = {
+    1: '20% (Familiar KR)',
+    2: '40% (Light Local)',
+    3: '60% (Balanced)',
+    4: '80% (Authentic)',
+    5: '100% (Pure Local)'
   };
 
-  const saltinessText = {
-    1: '20% (슴슴함)',
-    2: '40% (담백함)',
-    3: '60% (적당함)',
-    4: '80% (짭짤함)',
-    5: '100% (강한 간)'
+  const greasyText = {
+    1: '20% (Light & Clean)',
+    2: '40% (Mild)',
+    3: '60% (Moderate)',
+    4: '80% (Rich)',
+    5: '100% (Rich & Heavy)'
   };
 
-  const portionText = {
-    1: '20% (소식)',
-    2: '40% (가벼움)',
-    3: '60% (적당함)',
-    4: '80% (든든함)',
-    5: '100% (아주 푸짐)'
+  const spicyText = {
+    1: '20% (Not Spicy)',
+    2: '40% (Mild)',
+    3: '60% (Medium)',
+    4: '80% (Spicy)',
+    5: '100% (Very Spicy)'
+  };
+
+  const herbsText = {
+    1: '20% (Sensitive / No Cilantro)',
+    2: '40% (Light Herbs)',
+    3: '60% (Moderate)',
+    4: '80% (Herbal)',
+    5: '100% (Strong Herbs)'
   };
 
   const updateBadges = () => {
-    if (sliderSpiciness && valSpiciness) {
-      valSpiciness.textContent = spicinessText[sliderSpiciness.value] || `${sliderSpiciness.value * 20}%`;
-    }
-    if (sliderSaltiness && valSaltiness) {
-      valSaltiness.textContent = saltinessText[sliderSaltiness.value] || `${sliderSaltiness.value * 20}%`;
-    }
-    if (sliderPortion && valPortion) {
-      valPortion.textContent = portionText[sliderPortion.value] || `${sliderPortion.value * 20}%`;
-    }
+    // Section A Badges
+    if (weightT && valWeightT) valWeightT.textContent = `Weight: ${weightT.value} / 5`;
+    if (weightS && valWeightS) valWeightS.textContent = `Weight: ${weightS.value} / 5`;
+    if (weightV && valWeightV) valWeightV.textContent = `Weight: ${weightV.value} / 5`;
+    if (weightA && valWeightA) valWeightA.textContent = `Weight: ${weightA.value} / 5`;
+
+    // Section B Badges
+    if (tasteAuth && valTasteAuth) valTasteAuth.textContent = authText[tasteAuth.value] || `${tasteAuth.value * 20}%`;
+    if (tasteGreasy && valTasteGreasy) valTasteGreasy.textContent = greasyText[tasteGreasy.value] || `${tasteGreasy.value * 20}%`;
+    if (tasteSpicy && valTasteSpicy) valTasteSpicy.textContent = spicyText[tasteSpicy.value] || `${tasteSpicy.value * 20}%`;
+    if (tasteHerbs && valTasteHerbs) valTasteHerbs.textContent = herbsText[tasteHerbs.value] || `${tasteHerbs.value * 20}%`;
   };
 
   // Load existing settings
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'backendUrl', 'userProfile'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'isDebugMode', 'targetCulture', 'backendUrl', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) toggleEnabled.checked = res.isEnabled;
+      if (res.isDebugMode !== undefined && toggleDebug) toggleDebug.checked = res.isDebugMode;
       if (res.targetCulture) selectCulture.value = res.targetCulture;
       if (res.backendUrl) inputBackend.value = res.backendUrl;
 
-      // Restore userProfile preferredAspects & aspectLevels
+      // Restore userProfile (importanceWeights & tastePreferences)
       if (res.userProfile) {
-        if (Array.isArray(res.userProfile.preferredAspects)) {
-          aspectCheckboxes.forEach((cb) => {
-            cb.checked = res.userProfile.preferredAspects.includes(cb.value);
-          });
+        if (res.userProfile.importanceWeights) {
+          const w = res.userProfile.importanceWeights;
+          if (w.t !== undefined && weightT) weightT.value = w.t;
+          if (w.s !== undefined && weightS) weightS.value = w.s;
+          if (w.v !== undefined && weightV) weightV.value = w.v;
+          if (w.a !== undefined && weightA) weightA.value = w.a;
         }
-        if (res.userProfile.aspectLevels) {
-          if (res.userProfile.aspectLevels.spiciness && sliderSpiciness) {
-            sliderSpiciness.value = res.userProfile.aspectLevels.spiciness;
-          }
-          if (res.userProfile.aspectLevels.saltiness && sliderSaltiness) {
-            sliderSaltiness.value = res.userProfile.aspectLevels.saltiness;
-          }
-          if (res.userProfile.aspectLevels.portion && sliderPortion) {
-            sliderPortion.value = res.userProfile.aspectLevels.portion;
-          }
+
+        if (res.userProfile.tastePreferences) {
+          const p = res.userProfile.tastePreferences;
+          if (p.authenticity !== undefined && tasteAuth) tasteAuth.value = p.authenticity;
+          if (p.greasiness !== undefined && tasteGreasy) tasteGreasy.value = p.greasiness;
+          if (p.spiciness !== undefined && tasteSpicy) tasteSpicy.value = p.spiciness;
+          if (p.herbs !== undefined && tasteHerbs) tasteHerbs.value = p.herbs;
         }
       }
       updateBadges();
     });
   }
 
-  // Bind slider input events
-  [sliderSpiciness, sliderSaltiness, sliderPortion].forEach((slider) => {
+  // Bind slider input events for live badge update & auto save
+  const allSliders = [weightT, weightS, weightV, weightA, tasteAuth, tasteGreasy, tasteSpicy, tasteHerbs];
+  allSliders.forEach((slider) => {
     if (slider) {
       slider.addEventListener('input', () => {
         updateBadges();
@@ -97,48 +122,78 @@ document.addEventListener('DOMContentLoaded', () => {
   // Helper function to save current state
   const savePreferences = () => {
     const isEnabled = toggleEnabled.checked;
+    const isDebugMode = toggleDebug ? toggleDebug.checked : false;
     const targetCulture = selectCulture.value;
     const backendUrl = inputBackend.value.trim() || 'http://localhost:8000';
-    const preferredAspects = Array.from(aspectCheckboxes)
-      .filter((cb) => cb.checked)
-      .map((cb) => cb.value);
-
-    const aspectLevels = {
-      spiciness: parseInt(sliderSpiciness.value, 10),
-      saltiness: parseInt(sliderSaltiness.value, 10),
-      portion: parseInt(sliderPortion.value, 10)
-    };
 
     const userProfile = {
       targetCulture: targetCulture === 'Korean' ? 'KR' : (targetCulture === 'Japanese' ? 'JP' : 'US'),
-      preferredAspects,
-      aspectLevels
+      importanceWeights: {
+        t: parseInt(weightT ? weightT.value : 5, 10),
+        s: parseInt(weightS ? weightS.value : 3, 10),
+        v: parseInt(weightV ? weightV.value : 4, 10),
+        a: parseInt(weightA ? weightA.value : 2, 10)
+      },
+      tastePreferences: {
+        authenticity: parseInt(tasteAuth ? tasteAuth.value : 5, 10),
+        greasiness: parseInt(tasteGreasy ? tasteGreasy.value : 3, 10),
+        spiciness: parseInt(tasteSpicy ? tasteSpicy.value : 4, 10),
+        herbs: parseInt(tasteHerbs ? tasteHerbs.value : 1, 10)
+      }
     };
 
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({
         isEnabled,
+        isDebugMode,
         targetCulture,
         backendUrl,
         userProfile
       }, () => {
-        btnSave.textContent = '저장 완료! ✓';
+        btnSave.textContent = 'Saved! ✓';
         btnSave.style.background = '#22c55e';
         setTimeout(() => {
-          btnSave.textContent = '설정 저장';
+          btnSave.textContent = 'Save Settings';
           btnSave.style.background = '';
         }, 1500);
       });
     }
   };
 
+  const btnReset = document.getElementById('btn-reset');
+
+  // Reset all 8 preferences to 3 (Balanced / Neutral)
+  if (btnReset) {
+    btnReset.addEventListener('click', () => {
+      if (weightT) weightT.value = 3;
+      if (weightS) weightS.value = 3;
+      if (weightV) weightV.value = 3;
+      if (weightA) weightA.value = 3;
+
+      if (tasteAuth) tasteAuth.value = 3;
+      if (tasteGreasy) tasteGreasy.value = 3;
+      if (tasteSpicy) tasteSpicy.value = 3;
+      if (tasteHerbs) tasteHerbs.value = 3;
+
+      updateBadges();
+      savePreferences();
+
+      btnReset.textContent = 'Reset Complete! ✓ (All set to 3/5)';
+      btnReset.style.borderColor = '#22c55e';
+      btnReset.style.color = '#86efac';
+      setTimeout(() => {
+        btnReset.textContent = '🔄 Reset Preferences (All to 3/5)';
+        btnReset.style.borderColor = '';
+        btnReset.style.color = '';
+      }, 1500);
+    });
+  }
+
   // Save settings on button click
   btnSave.addEventListener('click', savePreferences);
-
-  // Instant save on aspect checkbox toggles
-  aspectCheckboxes.forEach((cb) => {
-    cb.addEventListener('change', savePreferences);
-  });
+  if (toggleEnabled) toggleEnabled.addEventListener('change', savePreferences);
+  if (toggleDebug) toggleDebug.addEventListener('change', savePreferences);
+  if (selectCulture) selectCulture.addEventListener('change', savePreferences);
 
   updateBadges();
 });

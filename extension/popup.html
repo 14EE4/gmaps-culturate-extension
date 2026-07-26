@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GMap Review Decoder 설정</title>
+  <title>GMap Review Decoder – Settings</title>
   <style>
     :root {
       --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
@@ -296,12 +296,12 @@
     <div class="logo">🔍</div>
     <div>
       <div class="title">GMap Review Decoder</div>
-      <div class="version">구글 맵 문화권 리뷰 보정 v1.0.0</div>
+      <div class="version">Korean Cultural Adjuster v1.0.0</div>
     </div>
   </div>
 
   <div class="toggle-group">
-    <span class="toggle-label">사이드바 오버레이 활성화</span>
+    <span class="toggle-label">Enable Sidebar Overlay</span>
     <label class="switch">
       <input type="checkbox" id="toggle-enabled" checked>
       <span class="slider"></span>
@@ -309,103 +309,163 @@
   </div>
 
   <div class="form-group">
-    <label for="select-culture">분석 대상 문화권</label>
+    <label for="select-culture">Target Culture</label>
     <select id="select-culture">
-      <option value="Korean" selected>🇰🇷 한국인 (KR) - 기본값</option>
-      <option value="Japanese">🇯🇵 일본인 (JP)</option>
-      <option value="American">🇺🇸 미국인 (US)</option>
+      <option value="Korean" selected>🇰🇷 Korean (KR) – Default</option>
+      <option value="Japanese">🇯🇵 Japanese (JP)</option>
+      <option value="American">🇺🇸 American (US)</option>
     </select>
   </div>
 
-  <div class="form-group">
-    <label>🎯 일반 관심 항목</label>
-    <div class="aspects-grid">
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="맛" checked>
-        <span>🍱 맛</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="서비스">
-        <span>💁 서비스</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="가성비" checked>
-        <span>💰 가성비</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="분위기">
-        <span>✨ 분위기</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="웨이팅" checked>
-        <span>⏳ 웨이팅</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="위생">
-        <span>🧹 위생</span>
-      </label>
-      <label class="aspect-checkbox-label">
-        <input type="checkbox" class="aspect-checkbox" value="주차">
-        <span>🚗 주차</span>
-      </label>
-    </div>
-  </div>
+  <hr class="section-divider">
 
+  <!-- SECTION A: v2 Aspect Importance Weights (1~5) -->
   <div class="form-group">
-    <label>📊 수치 상대 취향 조절 (슬라이더)</label>
+    <div class="section-subtitle">🎯 A. Aspect Importance Weights (v2 Spec)</div>
     <div class="sliders-container">
       <div class="slider-group">
         <div class="slider-header">
-          <span>🌶️ 선호 맵기</span>
-          <span id="val-spiciness" class="slider-val-badge">80% (매운맛)</span>
+          <span>🍱 Taste (t)</span>
+          <span id="val-weight-t" class="slider-val-badge">Weight: 5 / 5</span>
         </div>
-        <input type="range" id="slider-spiciness" class="aspect-slider" min="1" max="5" value="4">
+        <input type="range" id="weight-t" class="aspect-slider" min="1" max="5" value="5">
         <div class="slider-labels">
-          <span>순한맛</span>
-          <span>보통</span>
-          <span>아주 매운맛</span>
+          <span>1 (Low)</span>
+          <span>3 (Normal)</span>
+          <span>5 (Must Have)</span>
         </div>
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
-          <span>🧂 선호 간(염도)</span>
-          <span id="val-saltiness" class="slider-val-badge">60% (적당함)</span>
+          <span>💁 Service (s)</span>
+          <span id="val-weight-s" class="slider-val-badge">Weight: 3 / 5</span>
         </div>
-        <input type="range" id="slider-saltiness" class="aspect-slider" min="1" max="5" value="3">
+        <input type="range" id="weight-s" class="aspect-slider" min="1" max="5" value="3">
         <div class="slider-labels">
-          <span>싱겁게</span>
-          <span>적당함</span>
-          <span>짭짤함</span>
+          <span>1 (Low)</span>
+          <span>3 (Normal)</span>
+          <span>5 (Must Have)</span>
         </div>
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
-          <span>🥩 선호 식사 양</span>
-          <span id="val-portion" class="slider-val-badge">100% (아주 푸짐)</span>
+          <span>💰 Value for Money (v)</span>
+          <span id="val-weight-v" class="slider-val-badge">Weight: 4 / 5</span>
         </div>
-        <input type="range" id="slider-portion" class="aspect-slider" min="1" max="5" value="5">
+        <input type="range" id="weight-v" class="aspect-slider" min="1" max="5" value="4">
         <div class="slider-labels">
-          <span>소식</span>
-          <span>보통</span>
-          <span>아주 푸짐</span>
+          <span>1 (Low)</span>
+          <span>3 (Normal)</span>
+          <span>5 (Must Have)</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>✨ Atmosphere (a)</span>
+          <span id="val-weight-a" class="slider-val-badge">Weight: 2 / 5</span>
+        </div>
+        <input type="range" id="weight-a" class="aspect-slider" min="1" max="5" value="2">
+        <div class="slider-labels">
+          <span>1 (Low)</span>
+          <span>3 (Normal)</span>
+          <span>5 (Must Have)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- SECTION B: Overseas Food Adaptation Preferences (1~5 Range Sliders) -->
+  <div class="form-group">
+    <div class="section-subtitle">🌶️ B. Overseas Food Adaptation Preferences</div>
+    <div class="sliders-container">
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>🏮 Local Authenticity</span>
+          <span id="val-taste-authenticity" class="slider-val-badge">100% (Pure Local)</span>
+        </div>
+        <input type="range" id="taste-authenticity" class="aspect-slider" min="1" max="5" value="5">
+        <div class="slider-labels">
+          <span>Familiar KR</span>
+          <span>Balanced</span>
+          <span>Pure Local</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>🥑 Greasiness / Richness</span>
+          <span id="val-taste-greasiness" class="slider-val-badge">60% (Moderate)</span>
+        </div>
+        <input type="range" id="taste-greasiness" class="aspect-slider" min="1" max="5" value="3">
+        <div class="slider-labels">
+          <span>Light/Clean</span>
+          <span>Moderate</span>
+          <span>Rich/Heavy</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>🌶️ Spiciness Tolerance</span>
+          <span id="val-taste-spiciness" class="slider-val-badge">80% (Spicy)</span>
+        </div>
+        <input type="range" id="taste-spiciness" class="aspect-slider" min="1" max="5" value="4">
+        <div class="slider-labels">
+          <span>Mild</span>
+          <span>Medium</span>
+          <span>Very Spicy</span>
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span>🌿 Herbs & Spices</span>
+          <span id="val-taste-herbs" class="slider-val-badge">20% (Sensitive)</span>
+        </div>
+        <input type="range" id="taste-herbs" class="aspect-slider" min="1" max="5" value="1">
+        <div class="slider-labels">
+          <span>No Cilantro</span>
+          <span>Moderate</span>
+          <span>Strong Herbs</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="form-group">
-    <label for="input-backend">FastAPI 백엔드 주소</label>
+    <label for="input-backend">FastAPI Backend URL</label>
     <input type="text" id="input-backend" value="http://localhost:8000">
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- SECTION C: Developer & Debug Options -->
+  <div class="form-group">
+    <div class="section-subtitle" style="color: #f59e0b;">🐞 Developer &amp; Debug Options</div>
+    <div class="toggle-group" style="background: rgba(245, 158, 11, 0.1); border: 1px dashed rgba(245, 158, 11, 0.4); padding: 10px 14px; border-radius: 10px; display: flex; align-items: center; justify-content: space-between;">
+      <div class="toggle-info">
+        <div class="toggle-label" style="color: #fcd34d; font-weight: bold; font-size: 12px;">Debug Mode (Local CSV)</div>
+        <div class="toggle-sub" style="font-size: 10px; color: #fbbf24; opacity: 0.85;">Override Cheesecake Factory with local 64 CSV reviews</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-debug">
+        <span class="slider"></span>
+      </label>
+    </div>
   </div>
 
   <div class="status-card">
     <span class="status-dot"></span>
-    <span>UCSD Dataset Key (gmap_id) 감지 엔진 준비 완료</span>
+    <span>UCSD Dataset Engine Ready (v2 Schema Sync)</span>
   </div>
 
-  <button class="save-btn" id="btn-save">설정 저장</button>
+  <button class="save-btn" id="btn-save">Save Settings</button>
+  <button class="reset-btn" id="btn-reset">🔄 Reset Preferences (All to 3/5)</button>
 
   <script src="popup.js"></script>
 </body>

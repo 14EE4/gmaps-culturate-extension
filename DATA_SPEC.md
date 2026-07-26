@@ -1,135 +1,149 @@
-# GMap Review Decoder - 데이터 규격 및 가이드 문서 (`DATA_SPEC.md`)
+# GMap Review Decoder - 데이터 연동 스펙 v2 및 가이드 문서 (`DATA_SPEC.md`)
 
-본 문서는 **GMap Review Decoder** 확장프로그램과 백엔드에서 사용되는 리뷰 분석 데이터의 JSON 스키마, `gmap_id` 규격, 가중 평균 계산 공식, 실시간 DOM 파싱 규격 및 **신규 데이터 추가 가이드**를 제공합니다.
+본 문서는 **GMap Review Decoder** 확장프로그램과 백엔드에서 사용되는 v2 리뷰 분석 데이터셋(`extension_data.json`, `mvp_payload.json`)의 스키마, 3단계 우선순위 Resolve 알고리즘, `g_value` 상대 보정 계산 공식 및 프론트엔드 UI 렌더링 규격을 명시합니다.
 
 ---
 
 ## 📌 1. 기본 식별자 규격 (`gmap_id`)
 
 - **표준**: UCSD (University of California San Diego) Google Local Reviews 데이터셋 규격 식별자
-- **형식**: `0x[16진수 16자리]:0x[16진수 16자리]`
-- **예시**: `0x80c2c7e5bd221ad7:0x6975adb8d798ea0b` (CAVA USC Village 매장)
-- **추출 규칙**: 구글 맵스 장소 URL 내 모든 Hex ID 파라미터를 탐색하여 히스토리/이전 장소 파라미터가 아닌 **가장 마지막 위치의 ID(현재 선택된 장소)**를 반환 (`extension/content.js`)
-  ```js
-  function extractGMapId(url) {
-    if (!url) return null;
-    const matches = Array.from(url.matchAll(/(0x[0-9a-fA-F]{12,18}:0x[0-9a-fA-F]{12,18})/gi));
-    return matches.length > 0 ? matches[matches.length - 1][1] : null;
+- **형식**: `0x[16진수 16자리]:0x[16진수 16자리]` (콜론 `:` 분리 32자리 hex)
+- **예시**: `0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a` (LA 북창동 순두부 BCD Tofu House)
+- **추출 규칙**: 구글 맵스 장소 URL 내 모든 Hex ID 파라미터를 탐색하여 **가장 마지막 위치의 ID(현재 선택된 장소)**를 반환 (`extension/content.js`)
+
+---
+
+## 📊 2. v2 데이터셋 스키마 명세 (`extension_data.json`)
+
+팀원이 제공한 `extension_data.json`은 3개의 메인 테이블로 구성되어 있습니다.
+
+```json
+{
+  "meta": {
+    "version": "th03",
+    "schema_version": 2,
+    "baseline_gap": -0.2097,
+    "n_places": 388,
+    "n_categories": 42,
+    "n_index": 17090,
+    "aspect_names": ["taste", "service", "value", "atmosphere"]
+  },
+  "places": {
+    "0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a": {
+      "name": "BCD Tofu House",
+      "category": "Korean restaurant",
+      "ko_n": 514,
+      "ko_mean": 3.889,
+      "en_n": 1101,
+      "en_mean": 4.248,
+      "gap": -0.359,
+      "rel_gap": -0.149,
+      "status": "significant",
+      "tier": "test"
+    }
+  },
+  "place_index": {
+    "0x80c2c7e5bd221ad7:0x6975adb8d798ea0b": {
+      "c": "Mediterranean restaurant",
+      "z": { "t": -0.45, "s": -0.40, "v": -0.10, "a": -0.31 },
+      "n": { "t": 58, "s": 33, "v": 28, "a": 9 }
+    }
+  },
+  "categories": {
+    "Seafood restaurant": {
+      "ko_n": 229,
+      "ko_mean": 4.096,
+      "en_n": 112497,
+      "en_mean": 4.285,
+      "rel_gap": -0.124,
+      "status": "significant"
+    }
   }
+}
+```
+
+---
+
+## 🔄 3. 3단계 우선순위 Resolve 알고리즘
+
+익스텐션은 구글 맵스에서 `gmap_id` 감지 시 아래 3단계 우선순위에 따라 보정 평점과 분석 정보를 산출합니다.
+
+```text
+[입력 gmap_id]
+     │
+     ├── 1순위: places[gmapId] 존재 ➔ 🎯 [Tier 1 Measured Data]
+     │    └ 실측 데이터 사용 (ko_mean, en_mean, rel_gap, 통계 유의성 배지)
+     │
+     ├── 2순위: place_index[gmapId].c ➔ categories[cat] ➔ 📊 [Tier 2 Category Estimate]
+     │    ├ status == "significant" ➔ 구글 실시간 평점 + rel_gap 상대 보정 적용
+     │    └ status == "not_significant" ➔ 업종 격차 없음 (보정 미적용)
+     │
+     └── 3순위: 미해당 / 데이터 없음 ➔ 🔴 [Tier 3 No Dataset Available]
+          └ korean_rating = N/A (데이터 없음), 임의의 Mock 수치 렌더링 금지
+```
+
+---
+
+## 🧮 4. 최종 보정 점수 계산 공식 및 `rel_gap` (`g`값)
+
+- **공식**: $\text{KR Adjusted Rating} = \text{clamp}(\text{Google Rating} + \text{rel\_gap}, 0.0, 5.0)$
+- **주의사항**: `rel_gap` (`g`값)은 전체 기준선(-0.2097) 대비 상대값입니다. (절대 격차와 부호 및 크기가 다를 수 있음)
+- **프론트엔드 투명 표출**: 익스텐션 UI 오버레이에 데이터셋의 `g`값과 수식 카드를 상시 표출합니다.
+  ```text
+  🧮 Score Formula: Google + Dataset g = Final
+  [Google: 4.3★] + [Dataset g: -0.149] = [Adjusted: 4.15★]
   ```
 
 ---
 
-## 📊 2. 데이터 JSON 스키마 명세 (Table A / B / C 표준)
+## 📌 5. 4대 세부 항목 점수 (`z`/`n`) 렌더링 스펙
 
-확장프로그램 오버레이 패널 및 백엔드 API에서 주고받는 표준 JSON 데이터 구조입니다.
+`place_index[gmapId]`의 `z` (z-score 편차) 및 `n` (리뷰 언급 횟수) 데이터를 기반으로 **Aspect Strengths** 칩 및 **Aspect Comparison** 바를 연동합니다.
 
+- **4대 항목**: `t` (Taste), `s` (Service), `v` (Value), `a` (Atmosphere)
+- **임계값 규칙**:
+  - `Taste` / `Service`: `n ≥ 30` (Full, 진하게) / `10 ≤ n < 30` (Partial, 연하게) / `n < 10` (None, 회색)
+  - `Value` / `Atmosphere`: `n ≥ 10` (Full, 진하게) / `n < 10` (None, 회색)
+- **Aspect Comparison 바 연동**: `indexEntry.z` 값이 존재하는 경우 `clamp(GoogleRating + z, 1.0, 5.0)`으로 세부 별점 바를 100% 정밀 연동합니다.
+
+---
+
+## 📦 6. `mvp_payload.json` 요약 문구 매핑
+
+- **용도**: 장소별 한글 분석 요약 문구(`s` 필드) 공급.
+- **부재 시 처리**: `mvp_payload.json`에 `gmap_id`가 없는 경우 콘솔에 `⚠️ [Payload Missing]` 경고 로그를 출력하고 기본 문구로 처리합니다.
+
+---
+
+## 🛡️ 7. Mock 데이터 폴백 완전 제거
+
+- 기존 `MOCK_DATASET` 및 `generateMockData` 오프라인 임의 보정 수치 생성을 **완전 제거**하였습니다.
+- 팀 데이터셋에 없는 장소는 임의 수치 대신 **`N/A` (No Analysis Data Available)** 및 프론트엔드 상단 **🔴 Tier 3 배지**로 깔끔하게 직관 표출됩니다.
+
+---
+
+## 👤 8. 사용자 프로필 이원화 스키마 (`userProfile`) & 디버그 모드
+
+### 사용자 프로필 JSON 스키마
 ```json
 {
-  "gmap_id": "0x80c2c7e5bd221ad7:0x6975adb8d798ea0b",
-  "place_name": "CAVA (USC Village)",
-  "address": "3201 S Hoover St Suite 1840, Los Angeles, CA 90089",
-  "category": "Mediterranean restaurant, Salad shop, Fast casual",
-  "local_rating": 4.4,
-  "korean_rating": 3.8,
-  "kr_avg": 3.8,
-  "kr_count": 15,
-  "target_culture": "Korean",
-  "culture_summary": "지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.",
-  "metrics": {
-    "taste": { "local": 4.5, "kr": 3.8 },
-    "service": { "local": 4.2, "kr": 3.9 },
-    "value": { "local": 4.1, "kr": 3.5 },
-    "atmosphere": { "local": 4.4, "kr": 4.2 }
+  "targetCulture": "KR",
+  "importanceWeights": {
+    "t": 5,  // 🍱 Taste (1~5)
+    "s": 3,  // 💁 Service (1~5)
+    "v": 4,  // 💰 Value (1~5)
+    "a": 2   // ✨ Atmosphere (1~5)
   },
-  "nuance_tags": [
-    {
-      "tag_id": 1,
-      "literal": "\"Fully customizable fresh Mediterranean bowl\"",
-      "meaning": "서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음."
-    },
-    {
-      "tag_id": 2,
-      "literal": "\"Pita chips and Crazy Feta are top tier\"",
-      "meaning": "드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천."
-    }
-  ],
-  "native_korean_reviews": [
-    {
-      "author": "Kyungmo Jae",
-      "rating": 5.0,
-      "date": "7개월 전",
-      "text": "USC 빌리지안에 있는 카바에요! 식사시간 때 가면 사람들 많아서 줄서야하는데 모바일 오더도 가능해요!"
-    }
-  ]
-}
-```
-
----
-
-## 📐 3. 사전 데이터(~21.09) + 실시간 DOM 데이터 가중 평균 통합 수식
-
-UCSD 기반 사전 데이터셋(~21.09)과 확장프로그램이 구글 맵스 DOM에서 실시간으로 읽어온 리뷰 데이터를 결합하여 **통합 한국인 체감 평점**을 실시간 산출합니다.
-
-### 수식 공식
-$$\text{combinedRating} = \frac{(\text{pastKrRating} \times \text{pastKrCount}) + \sum \text{liveKrScores}}{\text{pastKrCount} + \text{liveKrCount}}$$
-
-### 계산 예시
-- **사전 데이터**: `kr_count: 15`, `kr_avg: 3.8` ($\text{pastKrScoreSum} = 57.0$)
-- **실시간 리뷰**: 3건 ($\text{scores: } 5, 5, 1 \rightarrow \text{liveKrScoreSum} = 11.0$)
-- **통합 결과**: $(57.0 + 11.0) / 18 = 68.0 / 18 = 3.777... \rightarrow \mathbf{3.8 \text{ ★ (총 18건)}}$
-
----
-
-## 🌐 4. 실시간 DOM 파싱 규격 (`extension/content.js`)
-
-1. **주소 파싱 (`extractAddressFromDOM`)**:
-   - `button[data-item-id="address"] .Io6YTe` 및 `aria-label` 파싱
-   - **`cleanAddressText`**: Google Material Symbols 아이콘 폰트 문자(`\uE000-\uF8FF`) 제거로 네모 박스(`□`) 깨짐 차단
-2. **카테고리 파싱 (`extractCategoryFromDOM`)**:
-   - `button.DkEaL` 및 `button[jsaction*="category"]` 파싱 (예: `"샌드위치 가게"`)
-3. **순수 리뷰 본문 전용 노드 타겟 파싱 (`bodyEl`)**:
-   - `card.querySelector('.wiYeB, span.wiYeB, div.My8ZBd, .KT6Ld, [class*="text"], span[lang]')`를 조준하여 작성자 헤더 및 하단 반응 버튼 노드를 파싱 시작 지점부터 분리
-4. **리뷰 텍스트 세탁 및 하단 액션 블록 수술 절단 (`cleanReviewText`)**:
-   - 한글 단어 경계(`\b`) 버그 수술 조치: `\b` 대신 한글 전용 부정형 전방탐색 `(?![가-힣a-zA-Z])` 적용
-   - `\n\n1\n\n공유`, ` 1 공유 -`, `좋아요 공유` 및 유니코드 아이콘(``, ``) 찌꺼기 100% 완전 정제
-
----
-
-## 🔄 5. 동적 다중 JSON 로더 & 대용량 데이터 관리 (`data/`)
-
-- 백엔드 서버(`backend/database.py`)는 최상위 `data/` 디렉토리 내부의 모든 `*.json` 파일을 실시간 탐지하여 하나로 자동 병합합니다.
-- 기본 샘플 파일(`data/sample_places.json`)을 제외한 대용량 JSON 데이터 파일은 `.gitignore`에 의해 커밋 대상에서 자동 제외됩니다.
-
----
-
-## 🛠️ 6. 새로운 장소 데이터 추가 가이드 (Copy & Paste 템플릿)
-
-```json
-{
-  "0x[GMAP_ID_16진수:0x16진수]": {
-    "gmap_id": "0x[GMAP_ID_16진수:0x16진수]",
-    "place_name": "[장소 이름]",
-    "address": "[식당 상세 주소]",
-    "category": "[카테고리 태그]",
-    "local_rating": 4.5,
-    "korean_rating": 3.9,
-    "kr_avg": 3.9,
-    "kr_count": 15,
-    "culture_summary": "[문화권 평점 보정 사유 요약 설명]",
-    "metrics": {
-      "taste": { "local": 4.6, "kr": 4.0 },
-      "service": { "local": 4.2, "kr": 3.5 },
-      "value": { "local": 4.0, "kr": 3.4 },
-      "atmosphere": { "local": 4.4, "kr": 4.1 }
-    },
-    "nuance_tags": [
-      {
-        "tag_id": 1,
-        "literal": "\"[원문 리뷰 주요 표현 1]\"",
-        "meaning": "[한국어 해석 및 문화적 뉘앙스 설명 1]"
-      }
-    ]
+  "tastePreferences": {
+    "authenticity": 5, // 🏮 Local Authenticity (1~5)
+    "greasiness": 3,    // 🥑 Greasiness (1~5)
+    "spiciness": 4,     // 🌶️ Spiciness (1~5)
+    "herbs": 1          // 🌿 Herbs (1~5)
   }
 }
 ```
+
+### 🐞 디버그 모드 (`isDebugMode`) 오버라이드 규격
+- **트리거**: 팝업 내 `Debug Mode (Local CSV)` 토글 ON (`isDebugMode: true`)
+- **타겟 장소**: `The Cheesecake Factory` (`0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5`)
+- **동작**: `extension/data/cheesecake_factory_reviews.json` (64개 실시간 원문 CSV 데이터) 오버라이드 및 `🎯 Matches your profile` 취향 우선 추천 정렬. 토글 OFF 시 구글 맵스 파싱 원래 상태로 즉시 원상 복구.

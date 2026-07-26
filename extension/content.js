@@ -22,164 +22,309 @@
   let retryTimers = [];
   let showAllReviews = false;
 
-  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
-  // Built-in Offline Fallback Mock Dataset (Works 100% without backend server)
-  const MOCK_DATASET = {
-    // CAVA (USC Village LA) - Main Test Sample
-    '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b': {
-      gmap_id: '0x80c2c7e5bd221ad7:0x6975adb8d798ea0b',
-      place_name: 'CAVA (USC Village)',
-      address: '3201 S Hoover St Suite 1840, Los Angeles, CA 90089',
-      category: 'Mediterranean restaurant, Salad shop, Fast casual',
-      local_rating: 4.4,
-      korean_rating: 3.8,
-      kr_avg: 3.8,
-      kr_count: 15,
-      culture_summary: '지중해식 샐러드 커스텀 볼 전문점. 현지 대학생 및 직장인에게 대인기이나, 한국인 기준 딥 소스의 간이 짤 수 있고 토핑 옵션 커스텀 주문 난이도가 있음.',
-      metrics: {
-        taste: { local: 4.5, kr: 3.8 },
-        service: { local: 4.2, kr: 3.9 },
-        value: { local: 4.1, kr: 3.5 },
-        atmosphere: { local: 4.4, kr: 4.2 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Fully customizable fresh Mediterranean bowl"',
-          meaning: '서브웨이처럼 베이스, 딥(Dip), 토핑, 드레싱을 계속 선택해야 해서 주문 난이도가 있음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Pita chips and Crazy Feta are top tier"',
-          meaning: '드레싱과 페타 치즈 간이 강한 편이므로 드레싱은 옆에 따로(Side) 요청하는 것 추천.'
-        },
-        {
-          tag_id: 3,
-          literal: '"Super fast line even when crowded"',
-          meaning: 'USC 캠퍼스 인근으로 점심시간 줄은 기나 패스트 카주얼 방식으로 회전율은 빠름.'
-        }
-      ]
-    },
+  // Data Spec v2 Engine States & Helpers
+  let extensionData = null;
+  let mvpPayload = null;
+  let isDebugMode = false;
+  let cachedCheesecakeReviews = null;
 
-    // LA Sun Nong Dan (선농단 K-Town)
-    '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3': {
-      gmap_id: '0x80c2c794c2cd9d2d:0xd1119cfbee0da6f3',
-      place_name: 'Sun Nong Dan (선농단 LA)',
-      address: '3470 W 6th St #7, Los Angeles, CA 90020',
-      category: 'Korean restaurant, Galbi-jjim, Soup',
-      local_rating: 4.6,
-      korean_rating: 4.4,
-      kr_avg: 4.4,
-      kr_count: 22,
-      culture_summary: '갈비찜과 치즈 사리의 높은 완성도. 현지인과 한국인 모두 최상위 평가이나 극심한 대기 시간과 주차 난이도에 엄격함.',
-      metrics: {
-        taste: { local: 4.8, kr: 4.7 },
-        service: { local: 4.3, kr: 3.8 },
-        value: { local: 4.2, kr: 3.9 },
-        atmosphere: { local: 4.1, kr: 3.6 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Portions are huge, order for groups"',
-          meaning: '치즈 갈비찜 소자도 2-3인용. 양이 매우 많아 가성비 양호함.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Waited 45 mins, staff is super rushed"',
-          meaning: '회전율을 극대화하기 위해 친절한 서비스는 기대하기 힘들고 분위기가 다소 어수선함.'
-        }
-      ]
-    },
-
-    // LA BCD Tofu House (북창동순두부 Wilshire)
-    '0x80c2c7c594236e71:0x5e2b036577317ba9': {
-      gmap_id: '0x80c2c7c594236e71:0x5e2b036577317ba9',
-      place_name: 'BCD Tofu House (북창동순두부)',
-      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
-      category: 'Korean restaurant, Tofu house, Korean BBQ',
-      local_rating: 4.5,
-      korean_rating: 3.9,
-      kr_avg: 3.9,
-      kr_count: 18,
-      culture_summary: '외국인에게는 표준 K-Food 기준점이나, 한국인 기준으로는 본국 순두부 전문점 대비 깊은 국물 맛이 다소 아쉽고 과도한 팁이 부담됨.',
-      metrics: {
-        taste: { local: 4.6, kr: 3.9 },
-        service: { local: 4.4, kr: 3.8 },
-        value: { local: 4.2, kr: 3.4 },
-        atmosphere: { local: 4.3, kr: 4.0 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Authentic Korean comfort food"',
-          meaning: '외국인 입맛에 표준화된 한국 맛. 한국 본토 맛을 원하면 무난하거나 평범함.'
-        }
-      ]
-    },
-
-    // LA BCD Tofu House (북창동 순두부 LA) - User Requested URL
-    '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a': {
-      gmap_id: '0x80c2b8831c5ab3a1:0xe81dfbb2ef41329a',
-      place_name: '북창동 순두부 (BCD Tofu House LA)',
-      address: '3575 Wilshire Blvd, Los Angeles, CA 90010',
-      category: 'Korean restaurant, Soft Tofu stew',
-      local_rating: 4.5,
-      korean_rating: 4.0,
-      kr_avg: 4.0,
-      kr_count: 20,
-      culture_summary: 'LA 한인타운의 대표 순두부 전문점. 외국인에게는 대표 K-Food 코스이나, 한국인 기준으로는 본국 매장 대비 다소 평범한 국물 맛과 긴 대기시간에 엄격함.',
-      metrics: {
-        taste: { local: 4.6, kr: 4.0 },
-        service: { local: 4.3, kr: 3.8 },
-        value: { local: 4.1, kr: 3.5 },
-        atmosphere: { local: 4.4, kr: 4.0 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Best BCD Tofu in K-Town LA"',
-          meaning: 'LA 대표 한식 전문점으로 쾌적하고 넓으나 점심/저녁 피크타임 대기시간 길음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Authentic Korean spicy tofu stew"',
-          meaning: '매운 맛 조절이 가능하나 한국인 입맛에는 보통 맛이 심심할 수 있어 매운맛(Spicy) 추천.'
-        }
-      ]
-    },
-
-    // Peter Luger Steak House NY
-    '0x89c259837920ab4d:0xcf20c1507df05e54': {
-      gmap_id: '0x89c259837920ab4d:0xcf20c1507df05e54',
-      place_name: 'Peter Luger Steak House',
-      address: '178 Broadway, Brooklyn, NY 11211',
-      category: 'Steak house, American restaurant',
-      local_rating: 4.4,
-      korean_rating: 3.7,
-      kr_avg: 3.7,
-      kr_count: 12,
-      culture_summary: '역사적인 드라이에이징 스테이크 전문점. 구글 평점은 높으나 Cash Only(현금 결제 전용) 및 고압적인 서비스로 한국인 가성비 평가 하락.',
-      metrics: {
-        taste: { local: 4.7, kr: 4.2 },
-        service: { local: 4.1, kr: 2.9 },
-        value: { local: 3.9, kr: 3.1 },
-        atmosphere: { local: 4.5, kr: 4.1 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '"Classic waiter service with Brooklyn attitude"',
-          meaning: '친절함보다는 무뚝뚝하고 틀에 박힌 서비스. 팁 결제 시 부담스러울 수 있음.'
-        },
-        {
-          tag_id: 2,
-          literal: '"Cash or debit only, be prepared!"',
-          meaning: '신용카드 불가로 현금 미소지 시 큰 불편 유발.'
-        }
-      ]
+  async function loadCheesecakeReviews() {
+    if (cachedCheesecakeReviews) return cachedCheesecakeReviews;
+    try {
+      const url = chrome.runtime.getURL('data/cheesecake_factory_reviews.json') + '?t=' + Date.now();
+      const res = await fetch(url);
+      cachedCheesecakeReviews = await res.json();
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load cheesecake_factory_reviews.json:', e);
+      cachedCheesecakeReviews = [];
     }
+    return cachedCheesecakeReviews;
+  }
+
+  async function loadExtensionData() {
+    if (extensionData) return extensionData;
+    try {
+      const url = chrome.runtime.getURL('data/extension_data.json');
+      const res = await fetch(url);
+      extensionData = await res.json();
+      console.log(`[GMap Review Decoder] ✅ Loaded dataset extension_data.json (${Object.keys(extensionData?.places || {}).length} places, ${Object.keys(extensionData?.place_index || {}).length} index entries)`);
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load extension_data.json:', e);
+      extensionData = null;
+    }
+    return extensionData;
+  }
+
+  async function loadMvpPayload() {
+    if (mvpPayload) return mvpPayload;
+    try {
+      const url = chrome.runtime.getURL('data/mvp_payload.json');
+      const res = await fetch(url);
+      mvpPayload = await res.json();
+      console.log(`[GMap Review Decoder] ✅ Loaded payload dataset mvp_payload.json (${Object.keys(mvpPayload || {}).length} items)`);
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load mvp_payload.json:', e);
+      mvpPayload = null;
+    }
+    return mvpPayload;
+  }
+
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+  function resolve(gmapId, googleRating) {
+    const data = extensionData;
+    if (!data || !gmapId) return { tier: 'none', entry: null, indexEntry: null };
+
+    const indexEntry = data.place_index ? data.place_index[gmapId] : null;
+
+    if (data.places && data.places[gmapId]) {
+      return { tier: 'measured', entry: data.places[gmapId], indexEntry };
+    }
+
+    const category = indexEntry?.c;
+    const catStat = (category && data.categories) ? data.categories[category] : undefined;
+    if (catStat) {
+      if (catStat.status === 'significant') {
+        const corrected = clamp(googleRating + catStat.rel_gap, 0, 5);
+        return { tier: 'category', entry: catStat, category, corrected, rel_gap: catStat.rel_gap, indexEntry };
+      }
+      if (catStat.status === 'not_significant') {
+        return { tier: 'category_ns', entry: catStat, category, indexEntry };
+      }
+    }
+
+    return { tier: 'none', entry: null, indexEntry };
+  }
+
+  function adjustedRating(gmapId, googleRating) {
+    const data = extensionData;
+    if (!data || !gmapId || typeof googleRating !== 'number' || isNaN(googleRating)) return null;
+    const place = data.places ? data.places[gmapId] : null;
+    if (place) return clamp(googleRating + place.rel_gap, 0, 5);
+    const catName = data.place_index ? data.place_index[gmapId]?.c : null;
+    const cat = catName && data.categories ? data.categories[catName] : null;
+    if (cat && cat.status === 'significant') return clamp(googleRating + cat.rel_gap, 0, 5);
+    return googleRating;
+  }
+
+  const ASPECT_THRESHOLDS = {
+    t: { full: 30, min: 10 },
+    s: { full: 30, min: 10 },
+    v: { full: null, min: 10 },
+    a: { full: null, min: 10 }
   };
+  const ASPECT_LABELS = { t: 'Taste', s: 'Service', v: 'Value', a: 'Atmosphere' };
+  const ASPECT_KEY_MAP = { '맛': 't', '서비스': 's', '가성비': 'v', '분위기': 'a' };
+
+  function aspectTier(key, n) {
+    const th = ASPECT_THRESHOLDS[key];
+    if (!th || n < th.min) return 'none';
+    if (th.full !== null && n < th.full) return 'partial';
+    return 'full';
+  }
+
+  function renderAspectChip(indexEntry, key) {
+    const n = indexEntry?.n?.[key] ?? 0;
+    const tier = aspectTier(key, n);
+    const z = indexEntry?.z?.[key];
+    const label = ASPECT_LABELS[key] || key;
+
+    if (tier === 'none') {
+      return `<div class="aspect-chip aspect-none">${label} <span class="aspect-sub">–</span></div>`;
+    }
+    const zText = (z === undefined)
+      ? 'avg'
+      : (z > 0 ? `+${z.toFixed(2)}` : z.toFixed(2));
+    const strength = (z === undefined) ? 'avg' : (z >= 0.3 ? 'strong' : z <= -0.3 ? 'weak' : 'mid');
+    const faded = tier === 'partial' ? 'aspect-partial' : '';
+    return `<div class="aspect-chip aspect-${strength} ${faded}" title="${n} mentions">
+      ${label} <span class="aspect-z">${zText}</span>
+      ${tier === 'partial' ? '<span class="aspect-sub">(ref)</span>' : ''}
+    </div>`;
+  }
+
+  function zForFit(indexEntry, key) {
+    const n = indexEntry?.n?.[key] ?? 0;
+    if (n < ASPECT_THRESHOLDS[key]?.min) return 0;
+    return indexEntry?.z?.[key] ?? 0;
+  }
+
+  function fitScore(indexEntry, chips) {
+    if (!chips || chips.length === 0) return 0;
+    const mappedKeys = chips.map(c => ASPECT_KEY_MAP[c] || c).filter(k => ASPECT_THRESHOLDS[k]);
+    if (mappedKeys.length === 0) return 0;
+    const zs = mappedKeys.map(k => zForFit(indexEntry, k));
+    return zs.reduce((a, b) => a + b, 0) / mappedKeys.length;
+  }
+
+  function norm(x, all) {
+    const valid = all.filter(v => typeof v === 'number' && !isNaN(v));
+    if (valid.length === 0) return 0.5;
+    const min = Math.min(...valid), max = Math.max(...valid);
+    if (max === min) return 0.5;
+    if (typeof x !== 'number' || isNaN(x)) return 0.5;
+    return (x - min) / (max - min);
+  }
+
+  function sortScore(ratingNorm, fNorm) {
+    const r = (ratingNorm === null || isNaN(ratingNorm)) ? 0.5 : ratingNorm;
+    return 0.5 * r + 0.5 * fNorm;
+  }
+
+  function percentileRank(F, allF) {
+    if (allF.length <= 1) return null;
+    const countLE = allF.filter(f => f <= F).length;
+    return Math.round((countLE / allF.length) * 100);
+  }
+
+  /**
+   * 사용자 프로필(적응 취향 & 중요도)과 한국인 리뷰 본문 간의 키워드 매칭 분석
+   */
+  function analyzeReviewTasteMatches(reviewText, userProfile) {
+    if (!reviewText || !userProfile) return [];
+    const text = reviewText.toLowerCase();
+    const matches = [];
+
+    const tastePrefs = userProfile.tastePreferences || {};
+    const impWeights = userProfile.importanceWeights || {};
+
+    // 1. Spiciness (매운맛)
+    if (tastePrefs.spiciness && tastePrefs.spiciness >= 3) {
+      if (/(맵|매콤|매운|얼큰|신라면|spicy|hot)/i.test(text)) {
+        matches.push('🌶️ Spiciness');
+      }
+    }
+    // 2. Herbs & Spices (향신료)
+    if (tastePrefs.herbs) {
+      if (/(고수|향신료|특유|향이|향은|cilantro|herb)/i.test(text)) {
+        matches.push('🌿 Herbs & Spices');
+      }
+    }
+    // 3. Greasiness / Richness (기름진/느끼/담백)
+    if (tastePrefs.greasiness) {
+      if (/(느끼|기름|담백|진한|고소|greasy|heavy|rich)/i.test(text)) {
+        matches.push('🥑 Richness');
+      }
+    }
+    // 4. Local Authenticity (현지식/현지인)
+    if (tastePrefs.authenticity) {
+      if (/(현지|로컬|익숙|한국인|본토|authentic|local)/i.test(text)) {
+        matches.push('🏮 Local Authenticity');
+      }
+    }
+
+    // 5. High Importance Aspects (Weights >= 4)
+    if (impWeights.s >= 4 && /(친절|불친절|직원|서비스|팁|waiter|service|tip)/i.test(text)) {
+      matches.push('💁 Service');
+    }
+    if (impWeights.v >= 4 && /(가성비|비싸|싸|양|가격|price|portion|cheap|expensive)/i.test(text)) {
+      matches.push('💰 Value');
+    }
+    if (impWeights.t >= 4 && /(맛|존맛|소스|간|짜|싱겁|delicious|tasty|flavor)/i.test(text)) {
+      matches.push('🍱 Taste');
+    }
+    if (impWeights.a >= 4 && /(분위기|인테리어|뷰|매장|vibes|atmosphere)/i.test(text)) {
+      matches.push('✨ Atmosphere');
+    }
+
+    return Array.from(new Set(matches));
+  }
+
+  function buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating) {
+    const payloadItem = mvpPayload ? mvpPayload[gmapId] : null;
+    const hasPayload = !!payloadItem;
+    const indexEntry = resolved.indexEntry || (extensionData?.place_index ? extensionData.place_index[gmapId] : null);
+    let localRating = googleRating || 4.0;
+    let koreanRating = null;
+    let cultureSummary = '';
+    let statusBadge = '';
+    let relGap = null;
+
+    if (!hasPayload) {
+      console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No mvp_payload.json entry found for gmap_id: ${gmapId}`);
+    }
+
+    if (resolved.tier === 'measured') {
+      const p = resolved.entry;
+      localRating = googleRating || p.en_mean || 4.0;
+      relGap = (p.rel_gap !== undefined && p.rel_gap !== null) ? p.rel_gap : null;
+      koreanRating = relGap !== null ? clamp(localRating + relGap, 0, 5) : p.ko_mean;
+      cultureSummary = `${p.name || placeName} (2021 Data): Korean avg ★${p.ko_mean.toFixed(1)} (${p.ko_n} reviews) vs English avg ★${p.en_mean.toFixed(1)} (${p.en_n} reviews). g-gap: ${relGap >= 0 ? '+' : ''}${relGap.toFixed(3)}`;
+      if (p.status === 'significant') {
+        statusBadge = 'Statistically Significant Difference';
+      } else if (p.status === 'low_sample') {
+        statusBadge = 'Low Sample Count (Reference Only)';
+      } else {
+        statusBadge = 'No Significant Difference';
+      }
+    } else if (resolved.tier === 'category') {
+      relGap = resolved.rel_gap;
+      koreanRating = clamp(localRating + relGap, 0, 5);
+      const dir = relGap >= 0 ? 'less deducted' : 'more deducted';
+      cultureSummary = `${resolved.category} is ${relGap >= 0 ? '+' : ''}${relGap.toFixed(2)} pts ${dir} compared to baseline. Google rating ★${localRating.toFixed(1)} + g(${relGap >= 0 ? '+' : ''}${relGap.toFixed(3)}) → Adjusted ★${koreanRating.toFixed(2)}.`;
+      statusBadge = 'Category Level Adjustment';
+    } else if (resolved.tier === 'category_ns') {
+      relGap = 0;
+      koreanRating = localRating;
+      cultureSummary = `For ${resolved.category}, no statistically significant rating difference was found between Korean and English reviews.`;
+      statusBadge = 'No Category Rating Gap';
+    } else {
+      koreanRating = null;
+      relGap = null;
+      cultureSummary = payloadItem?.s || 'No past dataset rating analysis available for this location.';
+      statusBadge = 'No Analysis Data Available';
+    }
+
+    if (payloadItem?.s && resolved.tier !== 'measured') {
+      cultureSummary = payloadItem.s;
+    }
+
+    return {
+      gmap_id: gmapId,
+      resolved: resolved,
+      has_payload: hasPayload,
+      place_name: placeName || (resolved.entry?.name) || 'Selected Place',
+      address: 'Google Maps Location',
+      category: resolved.category || resolved.entry?.category || indexEntry?.c || 'Point of Interest',
+      local_rating: localRating,
+      korean_rating: koreanRating,
+      rel_gap: relGap,
+      g_value: relGap,
+      kr_avg: koreanRating,
+      kr_count: resolved.entry?.ko_n || 0,
+      hasKoreanData: koreanRating !== null,
+      culture_summary: cultureSummary,
+      status_badge: statusBadge,
+      index_entry: indexEntry,
+      metrics: {
+        taste: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.t !== undefined) ? clamp(localRating + indexEntry.z.t, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        service: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.s !== undefined) ? clamp(localRating + indexEntry.z.s, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        value: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.v !== undefined) ? clamp(localRating + indexEntry.z.v, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        },
+        atmosphere: {
+          local: localRating.toFixed(1),
+          kr: (koreanRating !== null && indexEntry?.z?.a !== undefined) ? clamp(localRating + indexEntry.z.a, 1, 5).toFixed(1) : (koreanRating ? koreanRating.toFixed(1) : '-')
+        }
+      },
+      nuance_tags: [
+        {
+          tag_id: 1,
+          literal: statusBadge || '💬 Cultural Review Analysis',
+          meaning: cultureSummary
+        }
+      ]
+    };
+  }
+
+
 
   /**
    * 1. 사전 분석 데이터 구조의 가변성 대응 (Adapter Pattern)
@@ -607,6 +752,11 @@
    * @returns {Array<{author: string, rating: number|null, text: string}>}
    */
   function extractNativeKoreanReviewsFromDOM() {
+    if (currentAnalysisData && currentAnalysisData.is_debug_override) {
+      console.log('[GMap Review Decoder] 🐞 [Debug Mode Active] Preserving local CSV reviews, skipping DOM extraction.');
+      return currentAnalysisData.native_korean_reviews || [];
+    }
+
     const reviews = [];
     const seenKeys = new Set();
 
@@ -723,26 +873,36 @@
 
         currentAnalysisData.native_korean_reviews = reviews;
 
-        // 사전 분석 데이터(~21.09)와 실시간 DOM 데이터의 가중 통합 계산 (Weighted Average)
-        const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
-        if (combined.combinedRating !== null) {
-          currentAnalysisData.korean_rating = combined.combinedRating;
-          currentAnalysisData.total_kr_count = combined.totalKrCount;
-          currentAnalysisData.past_kr_count = combined.pastKrCount;
-          currentAnalysisData.live_kr_count = combined.liveKrCount;
-          currentAnalysisData.hasKoreanData = true;
-          currentAnalysisData.isRealKoreanReviewsReflected = true;
+        // 실시간 추출된 한국인 원문 리뷰가 존재하는 경우에만 가중결합 수행
+        if (reviews.length > 0) {
+          const combined = calculateCombinedKrRating(currentAnalysisData, reviews);
+          if (combined.combinedRating !== null) {
+            currentAnalysisData.korean_rating = combined.combinedRating;
+            currentAnalysisData.total_kr_count = combined.totalKrCount;
+            currentAnalysisData.past_kr_count = combined.pastKrCount;
+            currentAnalysisData.live_kr_count = combined.liveKrCount;
+            currentAnalysisData.hasKoreanData = true;
+            currentAnalysisData.isRealKoreanReviewsReflected = true;
 
-          if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `사전 데이터 ${combined.pastKrCount}건(★ ${combined.pastKrRating})과 실시간 추출 리뷰 ${combined.liveKrCount}건(★ ${combined.liveKrRating})이 가중 통합된 평균 평점(★ ${combined.combinedRating})입니다.`;
-          } else if (combined.liveKrCount > 0) {
-            currentAnalysisData.culture_summary = `실시간 추출된 순수 한국인 원문 리뷰 ${combined.liveKrCount}건의 평점 평균(★ ${combined.combinedRating})이 반영되었습니다.`;
+            if (combined.pastKrCount > 0 && combined.liveKrCount > 0) {
+              currentAnalysisData.culture_summary = `Weighted average combining ${combined.pastKrCount} past reviews (★${combined.pastKrRating}) and ${combined.liveKrCount} live reviews (★${combined.liveKrRating}) → combined score ★${combined.combinedRating}.`;
+            } else if (combined.liveKrCount > 0) {
+              currentAnalysisData.culture_summary = `Live-extracted native Korean reviews: ${combined.liveKrCount} reviews averaged at ★${combined.combinedRating}.`;
+            }
+          }
+        } else {
+          // 실시간 한국어 리뷰가 0건인 경우, resolved 규칙(업종 보정/실측)에 의해 계산된 보정 평점을 훼손하지 않고 100% 보존
+          if (currentAnalysisData.resolved) {
+            if (currentAnalysisData.resolved.tier === 'category') {
+              currentAnalysisData.korean_rating = clamp(currentAnalysisData.local_rating + currentAnalysisData.resolved.rel_gap, 0, 5);
+            } else if (currentAnalysisData.resolved.tier === 'measured') {
+              currentAnalysisData.korean_rating = currentAnalysisData.resolved.entry.ko_mean;
+            }
           }
         }
 
         const isDataChanged = (prevReviewsStr !== newReviewsStr) || (prevRating !== currentAnalysisData.korean_rating);
 
-        // 실제로 데이터가 변경되었을 때만 사이드바 UI 동적 갱신 (불필요한 re-render 및 깜빡임 차단)
         if (isDataChanged && shadowRoot) {
           renderSidebar(currentAnalysisData, currentIsMock);
         }
@@ -764,15 +924,19 @@
       const oldLocal = data.local_rating;
       data.local_rating = rawRating;
 
-      // 한국인 보정 데이터가 존재하는 경우에만 평점 재계산
-      if (typeof data.korean_rating === 'number' && !isNaN(data.korean_rating)) {
-        let delta = data.korean_rating - oldLocal;
-        const calculatedKr = Math.max(1.0, Math.min(5.0, rawRating + delta));
-        data.korean_rating = parseFloat(calculatedKr.toFixed(1));
+      // v2 rel_gap (g_value) 기반 정확한 보정 평점 재계산 (구글 실시간 평점 + g)
+      if (typeof data.rel_gap === 'number') {
+        data.korean_rating = clamp(rawRating + data.rel_gap, 0, 5);
+      } else if (data.resolved) {
+        if (data.resolved.tier === 'measured') {
+          data.korean_rating = data.resolved.entry.ko_mean;
+        } else if (data.resolved.tier === 'category') {
+          data.korean_rating = clamp(rawRating + data.resolved.rel_gap, 0, 5);
+        }
       }
 
       data.isDOMParsed = true;
-      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (기존 Fallback: ${oldLocal})`);
+      console.log(`[GMap Review Decoder] 실제 DOM 평점 파싱 완료: ${rawRating} (g: ${data.rel_gap}), KR Adjusted: ${data.korean_rating}`);
       return true;
     }
     return false;
@@ -785,43 +949,22 @@
 
   function scheduleRatingRetry(data, isMock) {
     clearRetryTimers();
-    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms, 3500ms 시점에 retry
-    const delays = [300, 700, 1200, 2000, 3500];
+    // DOM 로딩 지연 대응: 500ms, 1500ms 시점에 1회성 마이너 텍스트만 보완 (재렌더링 차단)
+    const delays = [500, 1500];
     delays.forEach(delay => {
       const timerId = setTimeout(() => {
-        if (!isEnabled || !shadowRoot) return;
+        if (!isEnabled || !shadowRoot || !data) return;
         const currentDOMRating = extractRatingFromDOM();
         if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
           applyDOMRating(data);
-          renderSidebar(data, isMock);
         }
-        extractNativeKoreanReviewsFromDOM();
-
-        // 장소명, 주소 또는 카테고리가 뒤늦게 렌더링된 경우 업데이트
         const freshAddr = extractAddressFromDOM();
-        let isAddrUpdated = false;
         if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
           data.address = freshAddr;
-          isAddrUpdated = true;
         }
-
         const freshCat = extractCategoryFromDOM();
         if (freshCat && (!data.category || data.category === 'Restaurant, Point of Interest')) {
           data.category = freshCat;
-          isAddrUpdated = true;
-        }
-
-        if (data.place_name && data.place_name.startsWith('장소 (')) {
-          const freshName = extractPlaceNameFromDOM();
-          if (freshName && !freshName.startsWith('장소 (')) {
-            data.place_name = freshName;
-            currentPlaceName = freshName;
-            isAddrUpdated = true;
-          }
-        }
-
-        if (isAddrUpdated) {
-          renderSidebar(data, isMock);
         }
       }, delay);
       retryTimers.push(timerId);
@@ -918,28 +1061,75 @@
 
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = btnElement.dataset.originalText || '📥 더 불러오기';
+        btnElement.innerHTML = btnElement.dataset.originalText || '📥 Load More';
       }
     } catch (err) {
-      console.warn('[GMap Review Decoder] 리뷰 더보기 도중 오류 발생:', err);
+      console.warn('[GMap Review Decoder] Error while loading more reviews:', err);
       if (btnElement) {
         btnElement.disabled = false;
-        btnElement.innerHTML = '📥 더 불러오기';
+        btnElement.innerHTML = '📥 Load More';
       }
     }
   }
 
-  /**
-   * 2. 백엔드 API 또는 Dynamic Mock Data 통신
-   */
+  function isCheesecakeTarget(gmapId, placeName) {
+    const url = (window.location.href || '').toLowerCase();
+    const name = (placeName || '').toLowerCase();
+    const id = (gmapId || '').toLowerCase();
+    return id.includes('0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5') ||
+           name.includes('cheesecake factory') ||
+           name.includes('치즈케익') ||
+           url.includes('cheesecake');
+  }
+
   async function fetchCulturalAnalysis(gmapId, placeName) {
+    // 1. Team-provided extension_data.json & mvp_payload.json first
+    await loadExtensionData();
+    await loadMvpPayload();
+
+    const googleRating = extractRatingFromDOM() || 4.0;
+
+    if (extensionData && gmapId) {
+      const resolved = resolve(gmapId, googleRating);
+      
+      if (resolved.tier === 'measured') {
+        console.log(`[GMap Review Decoder] 🎯 [Tier 1 Measured Data Used] gmap_id: ${gmapId}, place: "${resolved.entry.name}", ko_mean: ${resolved.entry.ko_mean}, en_mean: ${resolved.entry.en_mean}`);
+      } else if (resolved.tier === 'category') {
+        console.log(`[GMap Review Decoder] 📊 [Tier 2 Category Estimate Used] gmap_id: ${gmapId}, category: "${resolved.category}", rel_gap: ${resolved.rel_gap}, adjusted: ${resolved.corrected}`);
+      } else if (resolved.tier === 'category_ns') {
+        console.log(`[GMap Review Decoder] ℹ️ [Tier 2 Category (No Significant Diff)] category: "${resolved.category}"`);
+      } else {
+        console.log(`[GMap Review Decoder] 🚫 [Tier 3 No Past Data Available] gmap_id: ${gmapId}`);
+      }
+
+      const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
+
+      // Check Debug Mode Override for The Cheesecake Factory
+      const isTarget = isCheesecakeTarget(gmapId, placeName);
+      console.log(`[GMap Review Decoder Audit] 🔍 isDebugMode: ${isDebugMode}, isCheesecakeTarget: ${isTarget}, gmapId: ${gmapId}, placeName: "${placeName}"`);
+
+      if (isDebugMode && isTarget) {
+        const csvReviews = await loadCheesecakeReviews();
+        if (csvReviews && csvReviews.length > 0) {
+          analysisData.native_korean_reviews = csvReviews;
+          analysisData.is_debug_override = true;
+          console.log(`[GMap Review Decoder Audit] 🎉 SUCCESS! Overridden Cheesecake Factory reviews with ${csvReviews.length} CSV items.`);
+        } else {
+          console.warn(`[GMap Review Decoder Audit] ⚠️ cheesecake_factory_reviews.json was loaded but returned 0 items.`);
+        }
+      }
+
+      return { data: analysisData, isMock: false };
+    }
+
+    // 2. FastAPI backend fallback (if running)
     const backendUrl = `http://localhost:8000/api/analyze`;
     const queryParam = gmapId ? `gmap_id=${encodeURIComponent(gmapId)}` : `place_name=${encodeURIComponent(placeName || '')}`;
     const targetUrl = `${backendUrl}?${queryParam}&target_culture=${encodeURIComponent(targetCulture)}`;
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200); // 1.2s timeout for fast response
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
 
       const response = await fetch(targetUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -949,64 +1139,26 @@
         return { data, isMock: false };
       }
     } catch (e) {
-      console.log('[GMap Review Decoder] FastAPI 백엔드 미연결. Mock Data 모드로 실행합니다.');
+      console.log('[GMap Review Decoder] FastAPI backend disconnected.');
     }
 
-    // Fallback to Mock Data Engine
-    return { data: generateMockData(gmapId, placeName), isMock: true };
-  }
+    // Fallback: Dataset resolution (No Mock Data)
+    const fallbackResolved = resolve(gmapId, googleRating);
+    const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
 
-  /**
-   * Dynamic Mock Data Generator
-   */
-  function generateMockData(gmapId, placeName) {
-    // 1. UCSD Dataset Key에 일치하는 사전 데이터가 있을 경우 반환
-    if (gmapId && MOCK_DATASET[gmapId]) {
-      const cloned = JSON.parse(JSON.stringify(MOCK_DATASET[gmapId]));
-      cloned.hasKoreanData = true;
-      return cloned;
+    if (isDebugMode && isCheesecakeTarget(gmapId, placeName)) {
+      const csvReviews = await loadCheesecakeReviews();
+      if (csvReviews && csvReviews.length > 0) {
+        fallbackData.native_korean_reviews = csvReviews;
+        fallbackData.is_debug_override = true;
+      }
     }
 
-    // 2. 동적 Mock 생성 (미등록 장소의 경우 임의 보정 수치 대신 '데이터 없음' 상태 반환)
-    const displayName = placeName || (gmapId ? `장소 (${gmapId.substring(0, 10)}...)` : '선택된 장소');
-    const hash = simpleHash(displayName + (gmapId || ''));
-    const localRating = (4.0 + (hash % 10) / 10).toFixed(1);
-
-    return {
-      gmap_id: gmapId || `0x${hash.toString(16)}:0x${(hash * 31).toString(16)}`,
-      place_name: displayName,
-      address: 'Google Maps Location',
-      category: 'Restaurant, Point of Interest',
-      local_rating: parseFloat(localRating),
-      korean_rating: null,
-      kr_avg: null,
-      kr_count: 0,
-      hasKoreanData: false,
-      culture_summary: `실시간 감지된 한국인 원문 리뷰가 아직 없습니다. 구글 맵스 좌측 패널에서 리뷰 탭을 누르면 실시간 분석이 진행됩니다.`,
-      metrics: {
-        taste: { local: (4.2 + (hash % 6) / 10).toFixed(1), kr: '3.8' },
-        service: { local: (4.0 + (hash % 5) / 10).toFixed(1), kr: '3.5' },
-        value: { local: (4.1 + (hash % 7) / 10).toFixed(1), kr: '3.4' },
-        atmosphere: { local: 4.5, kr: 4.2 }
-      },
-      nuance_tags: [
-        {
-          tag_id: 1,
-          literal: '💬 한국인 리뷰 미감지 장소',
-          meaning: '구글 맵스 좌측 패널의 리뷰 탭을 클릭하여 한국어 리뷰를 탐지해 보세요.'
-        }
-      ]
-    };
+    return { data: fallbackData, isMock: false };
   }
 
-  function simpleHash(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash);
-  }
+
+
 
   /**
    * 3. Shadow DOM 초기화 및 사이드바 UI 렌더링
@@ -1047,28 +1199,46 @@
     const deltaClass = delta >= 0 ? 'delta-up' : 'delta-down';
     const deltaSign = delta >= 0 ? `+${delta}` : delta;
 
-    const aspectEmojiMap = {
-      '맛': '🍱 맛',
-      '서비스': '💁 서비스',
-      '가성비': '💰 가성비',
-      '분위기': '✨ 분위기',
-      '웨이팅': '⏳ 웨이팅',
-      '위생': '🧹 위생',
-      '주차': '🚗 주차'
-    };
-    const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
-    const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
-    const levelChips = [];
-    if (aspectLevels) {
-      if (aspectLevels.spiciness) {
-        levelChips.push(`🌶️ 맵기 ${aspectLevels.spiciness * 20}%`);
-      }
-      if (aspectLevels.saltiness) {
-        levelChips.push(`🧂 간 ${aspectLevels.saltiness * 20}%`);
-      }
-      if (aspectLevels.portion) {
-        levelChips.push(`🥩 양 ${aspectLevels.portion * 20}%`);
-      }
+    const indexEntry = data.index_entry || (data.gmap_id && extensionData?.place_index ? extensionData.place_index[data.gmap_id] : null);
+
+    const importanceWeights = (userProfile && userProfile.importanceWeights) ? userProfile.importanceWeights : { t: 5, s: 3, v: 4, a: 2 };
+    const tastePreferences = (userProfile && userProfile.tastePreferences) ? userProfile.tastePreferences : { authenticity: 5, greasiness: 3, spiciness: 4, herbs: 1 };
+
+    // Section A: High Importance Aspect Chips (Weights >= 4)
+    const weightChips = [];
+    if (importanceWeights.t >= 4) weightChips.push(`🍱 Taste (${importanceWeights.t}/5)`);
+    if (importanceWeights.s >= 4) weightChips.push(`💁 Service (${importanceWeights.s}/5)`);
+    if (importanceWeights.v >= 4) weightChips.push(`💰 Value (${importanceWeights.v}/5)`);
+    if (importanceWeights.a >= 4) weightChips.push(`✨ Atmosphere (${importanceWeights.a}/5)`);
+
+    // Section B: Overseas Food Adaptation Preferences Chips
+    const adaptationChips = [];
+    if (tastePreferences.authenticity) adaptationChips.push(`🏮 Local ${tastePreferences.authenticity * 20}%`);
+    if (tastePreferences.greasiness) adaptationChips.push(`🥑 Richness ${tastePreferences.greasiness * 20}%`);
+    if (tastePreferences.spiciness) adaptationChips.push(`🌶️ Spicy ${tastePreferences.spiciness * 20}%`);
+    if (tastePreferences.herbs) adaptationChips.push(`🌿 Herbs ${tastePreferences.herbs * 20}%`);
+
+    const resolvedTier = data.resolved ? data.resolved.tier : 'none';
+    let tierClass = 'none';
+    let tierIcon = '🔴';
+    let tierTitle = 'No Cultural Dataset Found for this Place';
+
+    if (resolvedTier === 'measured') {
+      tierClass = 'measured';
+      tierIcon = '🟢';
+      tierTitle = 'Measured Place Data Available (Tier 1)';
+    } else if (resolvedTier === 'category') {
+      tierClass = 'category';
+      tierIcon = '🔵';
+      tierTitle = 'Category Estimate Data Available (Tier 2)';
+    } else if (resolvedTier === 'category_ns') {
+      tierClass = 'category_ns';
+      tierIcon = 'ℹ️';
+      tierTitle = 'Category Match (No Rating Gap)';
+    } else {
+      tierClass = 'none';
+      tierIcon = '🔴';
+      tierTitle = 'No Cultural Dataset Available (Tier 3)';
     }
 
     // 기존 사이드바가 존재하는지 검사하여 중복 슬라이드 애니메이션(깜빡임) 차단
@@ -1083,12 +1253,12 @@
             <div class="header-logo">🔍</div>
             <div>
               <div class="header-title">GMap Review Decoder</div>
-              <div class="header-subtitle">한국인(KR) 문화권 맞춤 분석</div>
+              <div class="header-subtitle">Korean Cultural Adjuster</div>
             </div>
           </div>
           <div class="header-actions">
-            <button class="action-btn" id="btn-refresh" title="새로고침">🔄</button>
-            <button class="action-btn" id="btn-close" title="닫기">✖</button>
+            <button class="action-btn" id="btn-refresh" title="Refresh">🔄</button>
+            <button class="action-btn" id="btn-close" title="Close">✖</button>
           </div>
         </div>
 
@@ -1096,7 +1266,7 @@
         <div class="decoder-body">
           <!-- Place Title & ID -->
           <div class="place-card">
-            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || '선택된 장소')}</div>
+            <div class="place-name">${escapeHTML(data.place_name || currentPlaceName || 'Selected Place')}</div>
             <div class="place-meta">
               <span>📍 ${escapeHTML(data.address || 'Google Maps Place')}</span>
               ${data.category ? `<br><span style="font-size: 11px; opacity: 0.85;">🏷️ ${escapeHTML(data.category)}</span>` : ''}
@@ -1104,16 +1274,22 @@
             ${data.gmap_id ? `<div class="gmap-id-tag">ID: ${escapeHTML(data.gmap_id)}</div>` : ''}
           </div>
 
-          <!-- User Preferences Highlight -->
-          ${(preferredList.length > 0 || levelChips.length > 0) ? `
+          <!-- Dataset Availability Status Banner -->
+          <div class="data-status-banner data-status-${tierClass}">
+            <span class="status-icon">${tierIcon}</span>
+            <span class="status-text">${tierTitle}</span>
+          </div>
+
+          <!-- User Preferences & Adaptation Profile Highlight -->
+          ${(weightChips.length > 0 || adaptationChips.length > 0) ? `
             <div class="user-preferences-box">
-              <div class="preferences-title">🎯 사용자 맞춤 관심 취향</div>
+              <div class="preferences-title">🎯 Your Preferences &amp; Adaptation Profile</div>
               <div class="pref-tags-list">
-                ${preferredList.map(aspect => `
-                  <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
+                ${weightChips.map(chip => `
+                  <span class="pref-tag-chip profile-chip-weight">${escapeHTML(chip)}</span>
                 `).join('')}
-                ${levelChips.map(chip => `
-                  <span class="pref-tag-chip level-chip">${escapeHTML(chip)}</span>
+                ${adaptationChips.map(chip => `
+                  <span class="pref-tag-chip level-chip profile-chip-adaptation">${escapeHTML(chip)}</span>
                 `).join('')}
               </div>
             </div>
@@ -1123,87 +1299,138 @@
           <div class="ratings-container">
             <!-- Local Rating -->
             <div class="rating-box">
-              <div class="rating-label">🌐 현지 전체 평점</div>
+              <div class="rating-label">🌐 Local Rating</div>
               <div class="rating-score">
                 ${data.local_rating.toFixed(1)}
                 <span class="stars">★</span>
                 <span class="max">/5</span>
               </div>
-              <div class="rating-delta delta-none">구글 기본 평점</div>
+              <div class="rating-delta delta-none">Google Rating</div>
             </div>
 
             <!-- Korean Culture Rating -->
             <div class="rating-box korean-box">
-              <div class="rating-label">🇰🇷 한국인 체감 평점</div>
+              <div class="rating-label">🇰🇷 KR Adjusted Rating</div>
               <div class="rating-score">
-                ${hasKoreanData ? data.korean_rating.toFixed(1) : '미집계'}
+                ${hasKoreanData ? data.korean_rating.toFixed(2) : 'N/A'}
                 <span class="stars">★</span>
                 ${hasKoreanData ? '<span class="max">/5</span>' : ''}
               </div>
               <div class="rating-delta ${deltaClass}">
-                ${hasKoreanData ? `격차 ${deltaSign}${data.total_kr_count ? ` (총 ${data.total_kr_count}건)` : (data.kr_count ? ` (총 ${data.kr_count}건)` : '')}` : '데이터 수집 중'}
+                ${hasKoreanData ? `g-gap: ${typeof data.rel_gap === 'number' ? (data.rel_gap >= 0 ? '+' : '') + data.rel_gap.toFixed(3) : 'N/A'}` : 'No data'}
               </div>
+            </div>
+          </div>
+
+          <!-- Formula Calculation Display Box -->
+          ${typeof data.rel_gap === 'number' ? `
+            <div class="formula-box">
+              <div class="formula-title">🧮 Score Formula: Google + Dataset g = Final</div>
+              <div class="formula-content">
+                <span class="formula-part">Google: <strong>${data.local_rating.toFixed(1)}★</strong></span>
+                <span class="formula-op">+</span>
+                <span class="formula-part" title="Relative gap (g) from dataset">Dataset g: <strong>${data.rel_gap >= 0 ? '+' : ''}${data.rel_gap.toFixed(3)}</strong></span>
+                <span class="formula-op">=</span>
+                <span class="formula-result">Adjusted: <strong>${hasKoreanData ? data.korean_rating.toFixed(2) : 'N/A'}★</strong></span>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Aspect Score Chips (z/n Spec v2) -->
+          <div class="aspect-chips-section">
+            <div class="section-title">
+              <span>📌 Aspect Strengths</span>
+              <span class="data-year-badge">Based on 2021 reviews</span>
+            </div>
+            <div class="aspect-chips-grid">
+              ${['t','s','v','a'].map(k => renderAspectChip(indexEntry, k)).join('')}
             </div>
           </div>
 
           <!-- Native Korean Reviews Section -->
-          <div class="native-reviews-container">
-            <div class="section-title">
-              <span>💬 한국인 원문 리뷰 (${(data.native_korean_reviews || []).length}건)</span>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <button id="btn-fetch-more" class="btn-fetch-more" title="구글 맵스 패널을 스크롤하여 더 많은 한국인 리뷰를 자동으로 불러옵니다.">📥 더 불러오기</button>
-                ${(data.native_korean_reviews || []).length > 3 ? 
-                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? '접기 ▲' : '전체보기 ▼'}</button>` : ''
-                }
-              </div>
-            </div>
-            <div class="native-reviews-section">
-              ${(data.native_korean_reviews || []).length > 0 ? 
-                (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
-                  <div class="native-review-card">
-                    <div class="native-review-header">
-                      <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
-                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
-                    </div>
-                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+          ${(() => {
+            const rawReviews = data.native_korean_reviews || [];
+            // Process review taste profile matches
+            const processedReviews = rawReviews.map(r => {
+              const matchedTags = analyzeReviewTasteMatches(r.text, userProfile);
+              return { ...r, matchedTags, hasMatch: matchedTags.length > 0 };
+            });
+
+            // Sort taste-matched reviews first
+            const sortedReviews = [...processedReviews].sort((a, b) => (b.matchedTags.length - a.matchedTags.length));
+            const displayReviews = showAllReviews ? sortedReviews : sortedReviews.slice(0, 3);
+            const matchedCount = processedReviews.filter(r => r.hasMatch).length;
+
+            return `
+              <div class="native-reviews-container">
+                ${data.is_debug_override ? `
+                  <div class="debug-banner">
+                    <span>🐞 [Debug Mode Active] Overridden with Cheesecake Factory Local CSV (${rawReviews.length} Reviews)</span>
                   </div>
-                `).join('') :
-                `<div class="native-review-empty">
-                   <div style="margin-bottom: 8px;">💬 현재 화면 상단 리뷰 중 한국어 원문이 없습니다. (영어 UI 우선정렬)</div>
-                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 'More reviews' 자동 클릭 &amp; 스크롤 실행</button>
-                 </div>`
-              }
-            </div>
-          </div>
+                ` : ''}
+                <div class="section-title">
+                  <span>💬 Native Korean Reviews (${rawReviews.length}) ${matchedCount > 0 ? `<span style="font-size: 10px; color: #f0abfc; font-weight: normal;">(🎯 ${matchedCount} match your profile)</span>` : ''}</span>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
+                    ${rawReviews.length > 3 ? 
+                      `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
+                    }
+                  </div>
+                </div>
+                <div class="native-reviews-section">
+                  ${displayReviews.length > 0 ? 
+                    displayReviews.map(r => `
+                      <div class="native-review-card ${r.hasMatch ? 'taste-matched-card' : ''}">
+                        ${r.hasMatch ? `
+                          <div class="taste-match-badge">
+                            🎯 Matches your profile: ${r.matchedTags.join(', ')}
+                          </div>
+                        ` : ''}
+                        <div class="native-review-header">
+                          <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
+                          ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                        </div>
+                        <div class="native-review-text">${escapeHTML(r.text)}</div>
+                      </div>
+                    `).join('') :
+                    `<div class="native-review-empty">
+                       <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
+                       <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
+                     </div>`
+                  }
+                </div>
+              </div>
+            `;
+          })()}
 
           <!-- Rationale Box -->
           <div class="rationale-box">
-            <div class="rationale-title">💡 문화권 평점 보정 요약</div>
+            <div class="rationale-title">💡 Cultural Rating Summary <span class="data-year-badge">2021 Data</span></div>
             ${escapeHTML(data.culture_summary)}
           </div>
 
           <!-- Comparative Metrics -->
           <div>
             <div class="section-title">
-              <span>📊 항목별 인식 비교</span>
-              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(회색: 현지 / 보라: 한국인)</span>
+              <span>📊 Aspect Comparison</span>
+              <span style="font-size: 10px; color: #9ca3af; font-weight: normal;">(Gray: Local / Purple: Korean)</span>
             </div>
             <div class="metrics-list">
-              ${renderMetricBar('맛 (Taste)', data.metrics.taste)}
-              ${renderMetricBar('서비스 (Service)', data.metrics.service)}
-              ${renderMetricBar('가성비 (Value)', data.metrics.value)}
-              ${renderMetricBar('분위기 (Atmosphere)', data.metrics.atmosphere)}
+              ${renderMetricBar('Taste', data.metrics.taste)}
+              ${renderMetricBar('Service', data.metrics.service)}
+              ${renderMetricBar('Value for Money', data.metrics.value)}
+              ${renderMetricBar('Atmosphere', data.metrics.atmosphere)}
             </div>
           </div>
 
           <!-- Nuance Decoder Tags -->
           <div>
-            <div class="section-title">💡 뉘앙스 디코딩 태그</div>
+            <div class="section-title">💡 Nuance Decoding Tags</div>
             <div class="tags-grid">
               ${data.nuance_tags.map(tag => `
                 <div class="nuance-tag-card">
                   <div class="tag-literal">${escapeHTML(tag.literal)}</div>
-                  <div class="tag-meaning"><strong>#실제 의미:</strong> ${escapeHTML(tag.meaning)}</div>
+                  <div class="tag-meaning"><strong>#What it actually means:</strong> ${escapeHTML(tag.meaning)}</div>
                 </div>
               `).join('')}
             </div>
@@ -1214,7 +1441,7 @@
         <div class="decoder-footer">
           <div class="status-indicator">
             <span class="dot ${isMock ? 'mock-dot' : ''}"></span>
-            <span>${isMock ? 'Mock Fallback Engine (UCSD Key)' : 'FastAPI 백엔드 연결됨'}</span>
+            <span>${isMock ? 'Fallback Mock Engine' : (data.status_badge || 'UCSD Dataset Engine (2021)')}</span>
           </div>
           <span>v1.0.0</span>
         </div>
@@ -1351,20 +1578,8 @@
       return;
     }
 
-    // 이미 처리된 장소인 경우에도, DOM 평점 및 한국어 리뷰가 뒤늦게 표시되었는지 동적 파싱
+    // 이미 처리된 동일한 장소인 경우 무한 새로고침(깜빡임) 차단
     if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
-      applyDOMRating(currentAnalysisData);
-      extractNativeKoreanReviewsFromDOM();
-
-      // 장소 이름이 처음에 '장소 (0x...)' Fallback으로 생성되었다면 새로 감지된 장소명으로 업데이트
-      if (currentAnalysisData.place_name && currentAnalysisData.place_name.startsWith('장소 (')) {
-        const freshPlaceName = extractPlaceNameFromDOM();
-        if (freshPlaceName && !freshPlaceName.startsWith('장소 (')) {
-          currentAnalysisData.place_name = freshPlaceName;
-          currentPlaceName = freshPlaceName;
-          renderSidebar(currentAnalysisData, currentIsMock);
-        }
-      }
       return;
     }
 
@@ -1444,8 +1659,9 @@
 
   // Load User Preferences from Storage
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'userProfile'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'isDebugMode', 'targetCulture', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) isEnabled = res.isEnabled;
+      if (res.isDebugMode !== undefined) isDebugMode = res.isDebugMode;
       if (res.targetCulture) targetCulture = res.targetCulture;
       if (res.userProfile) userProfile = res.userProfile;
       startMonitoring();
@@ -1453,6 +1669,7 @@
 
     chrome.storage.onChanged.addListener((changes) => {
       if (changes.isEnabled) isEnabled = changes.isEnabled.newValue;
+      if (changes.isDebugMode) isDebugMode = changes.isDebugMode.newValue;
       if (changes.targetCulture) targetCulture = changes.targetCulture.newValue;
       if (changes.userProfile) userProfile = changes.userProfile.newValue;
 
