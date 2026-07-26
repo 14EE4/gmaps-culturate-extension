@@ -151,16 +151,34 @@ class GoogleMapsScraper:
         return place_name or "restaurant"
 
     def ensure_reviews_tab(self, url: str) -> None:
-        """리뷰 탭 접속 상태 보장: 리뷰 카드 없을 시 !9m1!1b1 URL로 재접속"""
-        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
-        cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
-        if len(cards) > 0:
-            return
+        """리뷰 탭 접속 상태 보장: 리뷰 탭 버튼 클릭 및 !9m1!1b1 URL 재접속"""
+        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id], div[role='article'], div.gWSg2b"
+        
+        # DOM 로딩 대기 (최대 6초)
+        start_t = time.time()
+        while time.time() - start_t < 6:
+            cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+            if len(cards) > 0:
+                return
+            time.sleep(1.0)
 
-        # 현재 URL에 !9m1!1b1이 없으면 삽입하여 리뷰 탭 URL로 변환
+        # 1. 리뷰 탭 버튼 직접 클릭 시도
+        try:
+            tab_btns = self.driver.find_elements(By.CSS_SELECTOR, "button[role='tab'], button[data-tab-index='1'], button.hh2c6, button[aria-label*='리뷰'], button[aria-label*='Reviews']")
+            for btn in tab_btns:
+                txt = (btn.get_attribute("textContent") or btn.get_attribute("aria-label") or btn.text or "").strip()
+                if "리뷰" in txt or "Reviews" in txt or "reviews" in txt.lower():
+                    self.driver.execute_script("arguments[0].click();", btn)
+                    time.sleep(3.0)
+                    cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
+                    if len(cards) > 0:
+                        return
+        except Exception:
+            pass
+
+        # 2. 현재 URL에 !9m1!1b1이 없으면 삽입하여 리뷰 탭 URL로 변환
         curr_url = self.driver.current_url
         if "!9m1!1b1" not in curr_url:
-            # ? 앞(쿼리스트링 앞)에 !9m1!1b1 삽입
             if "?" in curr_url:
                 base, query = curr_url.split("?", 1)
                 reviews_url = base + "!9m1!1b1?" + query
@@ -168,10 +186,7 @@ class GoogleMapsScraper:
                 reviews_url = curr_url + "!9m1!1b1"
             try:
                 self.driver.get(reviews_url)
-                time.sleep(2.5)
-                cards = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)
-                if len(cards) > 0:
-                    return
+                time.sleep(4.0)
             except Exception:
                 pass
 
@@ -179,44 +194,21 @@ class GoogleMapsScraper:
         """식당 전체 리뷰 수 문자열 및 수량(정수) 파싱 (동적 재시도 대기)"""
         total_rev_count_str = ""
         total_available_num = None
-        
-        selectors = [
-            "div.jANrlb div.fontBodySmall",
-            "div.jANrlb",
-            "div.F72Y3c",
-            "span.F72Y3c",
-            "button[data-tab-index='1']",
-            "span[role='img'][aria-label*='리뷰']",
-            "span[role='img'][aria-label*='reviews']",
-            "button[aria-label*='리뷰']",
-            "button[aria-label*='reviews']",
-            "button.hh2ftd",
-            "div.fontBodySmall",
-            "span[aria-label*='리뷰']",
-            "span[aria-label*='reviews']",
-            "span.ce3eFc"
-        ]
 
-        start_t = time.time()
-        while time.time() - start_t < 6:
+        start_time = time.time()
+        while time.time() - start_time < 8:
             try:
-                elems = self.driver.find_elements(By.CSS_SELECTOR, ", ".join(selectors))
-                for c in elems:
-                    try:
-                        is_in_card = self.driver.execute_script(
-                            "return !!arguments[0].closest('div.jJc9Ad, div.WNxzHc, div.RfnDt, button.al6Kxe, div.ffR21d');",
-                            c
-                        )
-                        if is_in_card:
-                            continue
-                    except Exception:
-                        pass
+                candidate_elems = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "div.fontBodySmall, span.fontBodySmall, div.F72Y3c, div.Dkfe2e, span[aria-label*='리뷰'], span[aria-label*='reviews'], button[role='tab'], div.jANA8b"
+                )
 
+                for c in candidate_elems:
                     target_texts = []
                     try:
-                        children = c.find_elements(By.CSS_SELECTOR, "span, div, button")
-                        for child in children:
-                            t = (child.get_attribute("aria-label") or child.text or "").strip()
+                        spans = c.find_elements(By.CSS_SELECTOR, "span")
+                        for s in spans:
+                            t = (s.get_attribute("textContent") or s.text or "").strip()
                             if t and ("리뷰" in t or "reviews" in t.lower() or "개" in t):
                                 target_texts.append(t)
                     except Exception:
@@ -229,14 +221,12 @@ class GoogleMapsScraper:
 
                     for txt in target_texts:
                         if txt and ("리뷰" in txt or "reviews" in txt.lower() or "개" in txt):
-                            # 1. K/천 단위 (2.8K reviews)
                             m = re.search(r"([\d.]+)\s*(?:k|K|천)\s*(?:reviews|review|리뷰|개|건)?", txt, re.IGNORECASE)
                             if m:
                                 total_available_num = int(float(m.group(1)) * 1000)
                                 total_rev_count_str = txt
                                 break
 
-                            # 2. 일반 숫자 단위 (2,863 reviews / 리뷰 3,814개)
                             m = re.search(r"(\d{1,3}(?:,\d{3})+|\d+)\s*(?:reviews|review|리뷰|개|건)", txt, re.IGNORECASE)
                             if not m:
                                 m = re.search(r"\(\s*(\d{1,3}(?:,\d{3})+|\d+)\s*\)", txt)
@@ -259,7 +249,7 @@ class GoogleMapsScraper:
         return total_rev_count_str, total_available_num
 
     def scrape(self, url: str, max_reviews: int = 100, pre_extracted_info: tuple = None) -> tuple[pd.DataFrame, str]:
-        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id]"
+        card_selectors = "div.jJc9Ad, div.ffR21d, div.WbbL3, div.Gvh3ud, div[data-review-id], div[role='article'], div.gWSg2b, div.q3Wb9"
 
         # 리뷰 탭 접속 보장
         self.ensure_reviews_tab(url)
@@ -299,24 +289,37 @@ class GoogleMapsScraper:
         else:
             print(f"[+] 리뷰 데이터 수집 시작 (목표 수량: {target_reviews}개)...")
 
-        # 3. 스크롤 컨테이너 감지
+        # 3. 스크롤 컨테이너 자바스크립트 전수 자동 탐지
         scrollable_div = None
-        time.sleep(1)
+        time.sleep(2.0)
 
         try:
-            container_candidates = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEwb, div.DkB4fd, div.m6QEwb.DkB4fd, div.m6QEdf.D6fe2e, div.m6QEdf")
-            for cand in container_candidates:
-                try:
-                    inner_cards = cand.find_elements(By.CSS_SELECTOR, card_selectors)
-                    aria_lbl = cand.get_attribute("aria-label") or ""
-                    if inner_cards or aria_lbl or "리뷰" in aria_lbl or "reviews" in aria_lbl.lower():
-                        if cand.is_displayed():
-                            scrollable_div = cand
-                            break
-                except Exception:
-                    pass
+            scrollable_div = self.driver.execute_script(
+                "const divs = Array.from(document.querySelectorAll('div'));"
+                "return divs.find(d => {"
+                "  const style = window.getComputedStyle(d);"
+                "  const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll' || d.scrollHeight > d.clientHeight) && d.clientHeight > 150;"
+                "  const hasReviewsText = d.innerText && (d.innerText.includes('star') || d.innerText.includes('별점') || d.innerText.includes('review') || d.innerText.includes('리뷰'));"
+                "  return isScrollable && hasReviewsText;"
+                "}) || null;"
+            )
         except Exception:
             pass
+
+        if not scrollable_div:
+            try:
+                container_candidates = self.driver.find_elements(By.CSS_SELECTOR, "div.m6QEwb, div.DkB4fd, div.m6QEdf.D6fe2e, div.m6QEdf, div[role='main']")
+                for cand in container_candidates:
+                    try:
+                        inner_cards = cand.find_elements(By.CSS_SELECTOR, card_selectors)
+                        if len(inner_cards) > 0:
+                            if cand.is_displayed():
+                                scrollable_div = cand
+                                break
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
         if not scrollable_div:
             cards_for_scroll = self.driver.find_elements(By.CSS_SELECTOR, card_selectors)

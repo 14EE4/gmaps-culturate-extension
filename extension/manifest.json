@@ -34,7 +34,8 @@
       "resources": [
         "styles.css",
         "data/extension_data.json",
-        "data/mvp_payload.json"
+        "data/mvp_payload.json",
+        "data/cheesecake_factory_reviews.json"
       ],
       "matches": [
         "https://www.google.com/*",

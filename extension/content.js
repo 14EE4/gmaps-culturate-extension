@@ -25,6 +25,21 @@
   // Data Spec v2 Engine States & Helpers
   let extensionData = null;
   let mvpPayload = null;
+  let isDebugMode = false;
+  let cachedCheesecakeReviews = null;
+
+  async function loadCheesecakeReviews() {
+    if (cachedCheesecakeReviews) return cachedCheesecakeReviews;
+    try {
+      const url = chrome.runtime.getURL('data/cheesecake_factory_reviews.json') + '?t=' + Date.now();
+      const res = await fetch(url);
+      cachedCheesecakeReviews = await res.json();
+    } catch (e) {
+      console.warn('[GMap Review Decoder] Failed to load cheesecake_factory_reviews.json:', e);
+      cachedCheesecakeReviews = [];
+    }
+    return cachedCheesecakeReviews;
+  }
 
   async function loadExtensionData() {
     if (extensionData) return extensionData;
@@ -160,6 +175,59 @@
     if (allF.length <= 1) return null;
     const countLE = allF.filter(f => f <= F).length;
     return Math.round((countLE / allF.length) * 100);
+  }
+
+  /**
+   * 사용자 프로필(적응 취향 & 중요도)과 한국인 리뷰 본문 간의 키워드 매칭 분석
+   */
+  function analyzeReviewTasteMatches(reviewText, userProfile) {
+    if (!reviewText || !userProfile) return [];
+    const text = reviewText.toLowerCase();
+    const matches = [];
+
+    const tastePrefs = userProfile.tastePreferences || {};
+    const impWeights = userProfile.importanceWeights || {};
+
+    // 1. Spiciness (매운맛)
+    if (tastePrefs.spiciness && tastePrefs.spiciness >= 3) {
+      if (/(맵|매콤|매운|얼큰|신라면|spicy|hot)/i.test(text)) {
+        matches.push('🌶️ Spiciness');
+      }
+    }
+    // 2. Herbs & Spices (향신료)
+    if (tastePrefs.herbs) {
+      if (/(고수|향신료|특유|향이|향은|cilantro|herb)/i.test(text)) {
+        matches.push('🌿 Herbs & Spices');
+      }
+    }
+    // 3. Greasiness / Richness (기름진/느끼/담백)
+    if (tastePrefs.greasiness) {
+      if (/(느끼|기름|담백|진한|고소|greasy|heavy|rich)/i.test(text)) {
+        matches.push('🥑 Richness');
+      }
+    }
+    // 4. Local Authenticity (현지식/현지인)
+    if (tastePrefs.authenticity) {
+      if (/(현지|로컬|익숙|한국인|본토|authentic|local)/i.test(text)) {
+        matches.push('🏮 Local Authenticity');
+      }
+    }
+
+    // 5. High Importance Aspects (Weights >= 4)
+    if (impWeights.s >= 4 && /(친절|불친절|직원|서비스|팁|waiter|service|tip)/i.test(text)) {
+      matches.push('💁 Service');
+    }
+    if (impWeights.v >= 4 && /(가성비|비싸|싸|양|가격|price|portion|cheap|expensive)/i.test(text)) {
+      matches.push('💰 Value');
+    }
+    if (impWeights.t >= 4 && /(맛|존맛|소스|간|짜|싱겁|delicious|tasty|flavor)/i.test(text)) {
+      matches.push('🍱 Taste');
+    }
+    if (impWeights.a >= 4 && /(분위기|인테리어|뷰|매장|vibes|atmosphere)/i.test(text)) {
+      matches.push('✨ Atmosphere');
+    }
+
+    return Array.from(new Set(matches));
   }
 
   function buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating) {
@@ -684,6 +752,11 @@
    * @returns {Array<{author: string, rating: number|null, text: string}>}
    */
   function extractNativeKoreanReviewsFromDOM() {
+    if (currentAnalysisData && currentAnalysisData.is_debug_override) {
+      console.log('[GMap Review Decoder] 🐞 [Debug Mode Active] Preserving local CSV reviews, skipping DOM extraction.');
+      return currentAnalysisData.native_korean_reviews || [];
+    }
+
     const reviews = [];
     const seenKeys = new Set();
 
@@ -876,43 +949,22 @@
 
   function scheduleRatingRetry(data, isMock) {
     clearRetryTimers();
-    // DOM 로딩 지연 대응: 300ms, 700ms, 1200ms, 2000ms, 3500ms 시점에 retry
-    const delays = [300, 700, 1200, 2000, 3500];
+    // DOM 로딩 지연 대응: 500ms, 1500ms 시점에 1회성 마이너 텍스트만 보완 (재렌더링 차단)
+    const delays = [500, 1500];
     delays.forEach(delay => {
       const timerId = setTimeout(() => {
-        if (!isEnabled || !shadowRoot) return;
+        if (!isEnabled || !shadowRoot || !data) return;
         const currentDOMRating = extractRatingFromDOM();
         if (currentDOMRating !== null && data.local_rating !== currentDOMRating) {
           applyDOMRating(data);
-          renderSidebar(data, isMock);
         }
-        extractNativeKoreanReviewsFromDOM();
-
-        // 장소명, 주소 또는 카테고리가 뒤늦게 렌더링된 경우 업데이트
         const freshAddr = extractAddressFromDOM();
-        let isAddrUpdated = false;
         if (freshAddr && (!data.address || data.address === 'Google Maps Location' || data.address === 'Google Maps Place')) {
           data.address = freshAddr;
-          isAddrUpdated = true;
         }
-
         const freshCat = extractCategoryFromDOM();
         if (freshCat && (!data.category || data.category === 'Restaurant, Point of Interest')) {
           data.category = freshCat;
-          isAddrUpdated = true;
-        }
-
-        if (data.place_name && data.place_name.startsWith('장소 (')) {
-          const freshName = extractPlaceNameFromDOM();
-          if (freshName && !freshName.startsWith('장소 (')) {
-            data.place_name = freshName;
-            currentPlaceName = freshName;
-            isAddrUpdated = true;
-          }
-        }
-
-        if (isAddrUpdated) {
-          renderSidebar(data, isMock);
         }
       }, delay);
       retryTimers.push(timerId);
@@ -1020,6 +1072,16 @@
     }
   }
 
+  function isCheesecakeTarget(gmapId, placeName) {
+    const url = (window.location.href || '').toLowerCase();
+    const name = (placeName || '').toLowerCase();
+    const id = (gmapId || '').toLowerCase();
+    return id.includes('0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5') ||
+           name.includes('cheesecake factory') ||
+           name.includes('치즈케익') ||
+           url.includes('cheesecake');
+  }
+
   async function fetchCulturalAnalysis(gmapId, placeName) {
     // 1. Team-provided extension_data.json & mvp_payload.json first
     await loadExtensionData();
@@ -1040,13 +1102,23 @@
         console.log(`[GMap Review Decoder] 🚫 [Tier 3 No Past Data Available] gmap_id: ${gmapId}`);
       }
 
-      if (mvpPayload && mvpPayload[gmapId]) {
-        console.log(`[GMap Review Decoder] 📦 [Payload Active] Found s text in mvp_payload.json for gmap_id: ${gmapId}`);
-      } else {
-        console.log(`[GMap Review Decoder] ⚠️ [Payload Missing] No s text in mvp_payload.json for gmap_id: ${gmapId}`);
+      const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
+
+      // Check Debug Mode Override for The Cheesecake Factory
+      const isTarget = isCheesecakeTarget(gmapId, placeName);
+      console.log(`[GMap Review Decoder Audit] 🔍 isDebugMode: ${isDebugMode}, isCheesecakeTarget: ${isTarget}, gmapId: ${gmapId}, placeName: "${placeName}"`);
+
+      if (isDebugMode && isTarget) {
+        const csvReviews = await loadCheesecakeReviews();
+        if (csvReviews && csvReviews.length > 0) {
+          analysisData.native_korean_reviews = csvReviews;
+          analysisData.is_debug_override = true;
+          console.log(`[GMap Review Decoder Audit] 🎉 SUCCESS! Overridden Cheesecake Factory reviews with ${csvReviews.length} CSV items.`);
+        } else {
+          console.warn(`[GMap Review Decoder Audit] ⚠️ cheesecake_factory_reviews.json was loaded but returned 0 items.`);
+        }
       }
 
-      const analysisData = buildAnalysisFromResolved(gmapId, placeName, resolved, googleRating);
       return { data: analysisData, isMock: false };
     }
 
@@ -1073,6 +1145,15 @@
     // Fallback: Dataset resolution (No Mock Data)
     const fallbackResolved = resolve(gmapId, googleRating);
     const fallbackData = buildAnalysisFromResolved(gmapId, placeName, fallbackResolved, googleRating);
+
+    if (isDebugMode && isCheesecakeTarget(gmapId, placeName)) {
+      const csvReviews = await loadCheesecakeReviews();
+      if (csvReviews && csvReviews.length > 0) {
+        fallbackData.native_korean_reviews = csvReviews;
+        fallbackData.is_debug_override = true;
+      }
+    }
+
     return { data: fallbackData, isMock: false };
   }
 
@@ -1120,29 +1201,22 @@
 
     const indexEntry = data.index_entry || (data.gmap_id && extensionData?.place_index ? extensionData.place_index[data.gmap_id] : null);
 
-    const aspectEmojiMap = {
-      '맛': '🍱 Taste',
-      '서비스': '💁 Service',
-      '가성비': '💰 Value',
-      '분위기': '✨ Atmosphere',
-      '웨이팅': '⏳ Wait Time',
-      '위생': '🧹 Hygiene',
-      '주차': '🚗 Parking'
-    };
-    const preferredList = (userProfile && Array.isArray(userProfile.preferredAspects)) ? userProfile.preferredAspects : [];
-    const aspectLevels = (userProfile && userProfile.aspectLevels) ? userProfile.aspectLevels : null;
-    const levelChips = [];
-    if (aspectLevels) {
-      if (aspectLevels.spiciness) {
-        levelChips.push(`🌶️ Spiciness ${aspectLevels.spiciness * 20}%`);
-      }
-      if (aspectLevels.saltiness) {
-        levelChips.push(`🧂 Saltiness ${aspectLevels.saltiness * 20}%`);
-      }
-      if (aspectLevels.portion) {
-        levelChips.push(`🥩 Portion ${aspectLevels.portion * 20}%`);
-      }
-    }
+    const importanceWeights = (userProfile && userProfile.importanceWeights) ? userProfile.importanceWeights : { t: 5, s: 3, v: 4, a: 2 };
+    const tastePreferences = (userProfile && userProfile.tastePreferences) ? userProfile.tastePreferences : { authenticity: 5, greasiness: 3, spiciness: 4, herbs: 1 };
+
+    // Section A: High Importance Aspect Chips (Weights >= 4)
+    const weightChips = [];
+    if (importanceWeights.t >= 4) weightChips.push(`🍱 Taste (${importanceWeights.t}/5)`);
+    if (importanceWeights.s >= 4) weightChips.push(`💁 Service (${importanceWeights.s}/5)`);
+    if (importanceWeights.v >= 4) weightChips.push(`💰 Value (${importanceWeights.v}/5)`);
+    if (importanceWeights.a >= 4) weightChips.push(`✨ Atmosphere (${importanceWeights.a}/5)`);
+
+    // Section B: Overseas Food Adaptation Preferences Chips
+    const adaptationChips = [];
+    if (tastePreferences.authenticity) adaptationChips.push(`🏮 Local ${tastePreferences.authenticity * 20}%`);
+    if (tastePreferences.greasiness) adaptationChips.push(`🥑 Richness ${tastePreferences.greasiness * 20}%`);
+    if (tastePreferences.spiciness) adaptationChips.push(`🌶️ Spicy ${tastePreferences.spiciness * 20}%`);
+    if (tastePreferences.herbs) adaptationChips.push(`🌿 Herbs ${tastePreferences.herbs * 20}%`);
 
     const resolvedTier = data.resolved ? data.resolved.tier : 'none';
     let tierClass = 'none';
@@ -1206,16 +1280,16 @@
             <span class="status-text">${tierTitle}</span>
           </div>
 
-          <!-- User Preferences Highlight -->
-          ${(preferredList.length > 0 || levelChips.length > 0) ? `
+          <!-- User Preferences & Adaptation Profile Highlight -->
+          ${(weightChips.length > 0 || adaptationChips.length > 0) ? `
             <div class="user-preferences-box">
-              <div class="preferences-title">🎯 Your Preferences</div>
+              <div class="preferences-title">🎯 Your Preferences &amp; Adaptation Profile</div>
               <div class="pref-tags-list">
-                ${preferredList.map(aspect => `
-                  <span class="pref-tag-chip">${aspectEmojiMap[aspect] || `#${escapeHTML(aspect)}`}</span>
+                ${weightChips.map(chip => `
+                  <span class="pref-tag-chip profile-chip-weight">${escapeHTML(chip)}</span>
                 `).join('')}
-                ${levelChips.map(chip => `
-                  <span class="pref-tag-chip level-chip">${escapeHTML(chip)}</span>
+                ${adaptationChips.map(chip => `
+                  <span class="pref-tag-chip level-chip profile-chip-adaptation">${escapeHTML(chip)}</span>
                 `).join('')}
               </div>
             </div>
@@ -1274,34 +1348,60 @@
           </div>
 
           <!-- Native Korean Reviews Section -->
-          <div class="native-reviews-container">
-            <div class="section-title">
-              <span>💬 Native Korean Reviews (${(data.native_korean_reviews || []).length})</span>
-              <div style="display: flex; gap: 6px; align-items: center;">
-                <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
-                ${(data.native_korean_reviews || []).length > 3 ? 
-                  `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
-                }
-              </div>
-            </div>
-            <div class="native-reviews-section">
-              ${(data.native_korean_reviews || []).length > 0 ? 
-                (showAllReviews ? data.native_korean_reviews : data.native_korean_reviews.slice(0, 3)).map(r => `
-                  <div class="native-review-card">
-                    <div class="native-review-header">
-                      <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
-                      ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
-                    </div>
-                    <div class="native-review-text">${escapeHTML(r.text)}</div>
+          ${(() => {
+            const rawReviews = data.native_korean_reviews || [];
+            // Process review taste profile matches
+            const processedReviews = rawReviews.map(r => {
+              const matchedTags = analyzeReviewTasteMatches(r.text, userProfile);
+              return { ...r, matchedTags, hasMatch: matchedTags.length > 0 };
+            });
+
+            // Sort taste-matched reviews first
+            const sortedReviews = [...processedReviews].sort((a, b) => (b.matchedTags.length - a.matchedTags.length));
+            const displayReviews = showAllReviews ? sortedReviews : sortedReviews.slice(0, 3);
+            const matchedCount = processedReviews.filter(r => r.hasMatch).length;
+
+            return `
+              <div class="native-reviews-container">
+                ${data.is_debug_override ? `
+                  <div class="debug-banner">
+                    <span>🐞 [Debug Mode Active] Overridden with Cheesecake Factory Local CSV (${rawReviews.length} Reviews)</span>
                   </div>
-                `).join('') :
-                `<div class="native-review-empty">
-                   <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
-                   <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
-                 </div>`
-              }
-            </div>
-          </div>
+                ` : ''}
+                <div class="section-title">
+                  <span>💬 Native Korean Reviews (${rawReviews.length}) ${matchedCount > 0 ? `<span style="font-size: 10px; color: #f0abfc; font-weight: normal;">(🎯 ${matchedCount} match your profile)</span>` : ''}</span>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <button id="btn-fetch-more" class="btn-fetch-more" title="Auto-scroll Google Maps panel to load more Korean reviews">📥 Load More</button>
+                    ${rawReviews.length > 3 ? 
+                      `<button id="btn-toggle-reviews" class="btn-toggle-reviews">${showAllReviews ? 'Collapse ▲' : 'Show All ▼'}</button>` : ''
+                    }
+                  </div>
+                </div>
+                <div class="native-reviews-section">
+                  ${displayReviews.length > 0 ? 
+                    displayReviews.map(r => `
+                      <div class="native-review-card ${r.hasMatch ? 'taste-matched-card' : ''}">
+                        ${r.hasMatch ? `
+                          <div class="taste-match-badge">
+                            🎯 Matches your profile: ${r.matchedTags.join(', ')}
+                          </div>
+                        ` : ''}
+                        <div class="native-review-header">
+                          <span class="native-review-author">👤 ${escapeHTML(r.author)}${r.date ? ` <span class="native-review-date">· ${escapeHTML(r.date)}</span>` : ''}</span>
+                          ${r.rating ? `<span class="native-review-rating">★ ${r.rating}.0</span>` : ''}
+                        </div>
+                        <div class="native-review-text">${escapeHTML(r.text)}</div>
+                      </div>
+                    `).join('') :
+                    `<div class="native-review-empty">
+                       <div style="margin-bottom: 8px;">💬 No native Korean reviews visible yet. (English UI sorted first)</div>
+                       <button id="btn-fetch-more-empty" class="btn-fetch-more-large">📥 Auto-click 'More reviews' &amp; scroll</button>
+                     </div>`
+                  }
+                </div>
+              </div>
+            `;
+          })()}
 
           <!-- Rationale Box -->
           <div class="rationale-box">
@@ -1478,25 +1578,8 @@
       return;
     }
 
-    // 이미 처리된 장소인 경우에도, DOM 평점 및 한국어 리뷰가 뒤늦게 표시되었는지 동적 파싱
+    // 이미 처리된 동일한 장소인 경우 무한 새로고침(깜빡임) 차단
     if (!forceRefresh && processKey === lastProcessedKey && currentAnalysisData) {
-      const isRatingUpdated = applyDOMRating(currentAnalysisData);
-      extractNativeKoreanReviewsFromDOM();
-
-      // 장소 이름이 처음에 '장소 (0x...)' Fallback으로 생성되었다면 새로 감지된 장소명으로 업데이트
-      let isNameUpdated = false;
-      if (currentAnalysisData.place_name && (currentAnalysisData.place_name.startsWith('장소 (') || currentAnalysisData.place_name.startsWith('Selected Place ('))) {
-        const freshPlaceName = extractPlaceNameFromDOM();
-        if (freshPlaceName && !freshPlaceName.startsWith('장소 (') && !freshPlaceName.startsWith('Selected Place (')) {
-          currentAnalysisData.place_name = freshPlaceName;
-          currentPlaceName = freshPlaceName;
-          isNameUpdated = true;
-        }
-      }
-
-      if (isRatingUpdated || isNameUpdated) {
-        renderSidebar(currentAnalysisData, currentIsMock);
-      }
       return;
     }
 
@@ -1576,8 +1659,9 @@
 
   // Load User Preferences from Storage
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['isEnabled', 'targetCulture', 'userProfile'], (res) => {
+    chrome.storage.local.get(['isEnabled', 'isDebugMode', 'targetCulture', 'userProfile'], (res) => {
       if (res.isEnabled !== undefined) isEnabled = res.isEnabled;
+      if (res.isDebugMode !== undefined) isDebugMode = res.isDebugMode;
       if (res.targetCulture) targetCulture = res.targetCulture;
       if (res.userProfile) userProfile = res.userProfile;
       startMonitoring();
@@ -1585,6 +1669,7 @@
 
     chrome.storage.onChanged.addListener((changes) => {
       if (changes.isEnabled) isEnabled = changes.isEnabled.newValue;
+      if (changes.isDebugMode) isDebugMode = changes.isDebugMode.newValue;
       if (changes.targetCulture) targetCulture = changes.targetCulture.newValue;
       if (changes.userProfile) userProfile = changes.userProfile.newValue;
 

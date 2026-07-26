@@ -119,5 +119,31 @@
 
 - 기존 `MOCK_DATASET` 및 `generateMockData` 오프라인 임의 보정 수치 생성을 **완전 제거**하였습니다.
 - 팀 데이터셋에 없는 장소는 임의 수치 대신 **`N/A` (No Analysis Data Available)** 및 프론트엔드 상단 **🔴 Tier 3 배지**로 깔끔하게 직관 표출됩니다.
+
+---
+
+## 👤 8. 사용자 프로필 이원화 스키마 (`userProfile`) & 디버그 모드
+
+### 사용자 프로필 JSON 스키마
+```json
+{
+  "targetCulture": "KR",
+  "importanceWeights": {
+    "t": 5,  // 🍱 Taste (1~5)
+    "s": 3,  // 💁 Service (1~5)
+    "v": 4,  // 💰 Value (1~5)
+    "a": 2   // ✨ Atmosphere (1~5)
+  },
+  "tastePreferences": {
+    "authenticity": 5, // 🏮 Local Authenticity (1~5)
+    "greasiness": 3,    // 🥑 Greasiness (1~5)
+    "spiciness": 4,     // 🌶️ Spiciness (1~5)
+    "herbs": 1          // 🌿 Herbs (1~5)
+  }
 }
 ```
+
+### 🐞 디버그 모드 (`isDebugMode`) 오버라이드 규격
+- **트리거**: 팝업 내 `Debug Mode (Local CSV)` 토글 ON (`isDebugMode: true`)
+- **타겟 장소**: `The Cheesecake Factory` (`0x80c2b92fc2d303c3:0x17a5bf3c12b6eeb5`)
+- **동작**: `extension/data/cheesecake_factory_reviews.json` (64개 실시간 원문 CSV 데이터) 오버라이드 및 `🎯 Matches your profile` 취향 우선 추천 정렬. 토글 OFF 시 구글 맵스 파싱 원래 상태로 즉시 원상 복구.
